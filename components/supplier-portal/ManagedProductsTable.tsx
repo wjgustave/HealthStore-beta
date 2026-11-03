@@ -1,20 +1,21 @@
 'use client'
 
-import { MANAGED_PRODUCTS, managedProductHref } from '@/lib/supplierPortal'
-import { managedProductStatus } from './portalStatus'
+import { managedProductHref } from '@/lib/supplierPortal'
+import { managedProductStatus, useAvailableManagedProducts } from './portalStatus'
 import { StatusTable } from './StatusTable'
 import { useSupplierPortal } from './useSupplierPortal'
 
 /** Onboarded products with their current status and last update. */
 export default function ManagedProductsTable() {
   const { hydrated, getRecord } = useSupplierPortal()
-  if (!hydrated) return null
+  const { hydrated: productsReady, products } = useAvailableManagedProducts()
+  if (!hydrated || !productsReady) return null
   return (
     <StatusTable
       caption="Your onboarded products and their status"
       nameHeading="Product"
       dateHeading="Last updated"
-      rows={MANAGED_PRODUCTS.map((p) => {
+      rows={products.map((p) => {
         const record = getRecord('products', p.id)
         return {
           id: p.id,

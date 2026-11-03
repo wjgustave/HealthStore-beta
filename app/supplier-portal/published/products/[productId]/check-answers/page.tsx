@@ -1,13 +1,7 @@
 import { notFound } from 'next/navigation'
-import PublishedPageCheckAnswers from '@/components/supplier-portal/PublishedPageCheckAnswers'
-import {
-  MANAGED_PRODUCTS,
-  PORTAL_SERVICE_NAME,
-  PRODUCT_PAGE_FIELDS,
-  findManagedProduct,
-  publishedProductConfirmationHref,
-  publishedProductHref,
-} from '@/lib/supplierPortal'
+import ProductPageCheckAnswers from '@/components/supplier-portal/ProductPageCheckAnswers'
+import { MANAGED_PRODUCTS, PORTAL_SERVICE_NAME, findManagedProduct } from '@/lib/supplierPortal'
+import { productPageBase } from '@/lib/supplierPortalContent'
 
 type Params = Promise<{ productId: string }>
 
@@ -24,14 +18,12 @@ export default async function PublishedProductCheckAnswersPage({ params }: { par
   const product = findManagedProduct((await params).productId)
   if (!product) notFound()
   return (
-    <PublishedPageCheckAnswers
-      pageId={product.id}
-      caption="Product page"
-      title={product.name}
-      fields={PRODUCT_PAGE_FIELDS}
-      defaults={{}}
-      editHref={publishedProductHref(product.id)}
-      confirmationHref={publishedProductConfirmationHref(product.id)}
-    />
+    <div className="nhsuk-width-container nhsuk-main-wrapper">
+      <div className="nhsuk-grid-row">
+        <div className="nhsuk-grid-column-two-thirds">
+          <ProductPageCheckAnswers productId={product.id} base={productPageBase(product)} />
+        </div>
+      </div>
+    </div>
   )
 }

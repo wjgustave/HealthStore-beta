@@ -64,7 +64,7 @@ export default async function AppPage({
         description="Supplier, proposition, and actions."
         className="mb-4"
       >
-        {/* NHS page heading pattern: supplier as a caption above the H1 (heading-xl),
+        {/* Page heading: H1 (heading-xl) with the supplier as a caption under it,
             then tags and the lede proposition in body text. */}
         <div className="overflow-visible">
           <div className="w-full min-w-0">
@@ -73,10 +73,10 @@ export default async function AppPage({
                 <Image src={app.logo_path} alt={`${app.app_name} logo`} width={48} height={48}
                   className="rounded-lg flex-shrink-0" />
               )}
-              <h1 className="nhsuk-heading-xl nhsuk-u-margin-bottom-4">
-                <span className="nhsuk-caption-xl">{app.supplier_name}</span>
-                {app.app_name}
-              </h1>
+              <div className="min-w-0">
+                <h1 className="nhsuk-heading-xl">{app.app_name}</h1>
+                <span className="nhsuk-caption-xl hs-caption-below">{app.supplier_name}</span>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 nhsuk-u-margin-bottom-4">
               {(app.condition_tags ?? []).map((t: string) => (
@@ -132,7 +132,7 @@ export default async function AppPage({
           <PdpCommissioningSnapshot
             cards={commissioningCards}
             whereLiveApp={app}
-            whereLiveHref={hasNhsExperience ? pdpSectionPath(app.slug, 'nhs-experience') : undefined}
+            whereLiveHref={hasNhsExperience ? pdpSectionPath(app.slug, 'peer-and-patient-experience') : undefined}
           />
         </PdpShareRegion>
       )}

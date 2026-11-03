@@ -1,7 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
-import { statusMeta, summarizeDeployments, type DeploymentRow } from '@/lib/deploymentRegister'
+import { statusMeta, type DeploymentRow } from '@/lib/deploymentRegister'
 
 /** Map deployment status onto GOV.UK-style `.badge` colour modifiers. */
 function statusBadgeClass(status: string | undefined): string {
@@ -35,22 +34,11 @@ function formatCareSetting(v?: string) {
     .replace(/\bPrimary care\b/gi, 'Primary')
 }
 
-function DeploymentStat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="hs-deploy-stat">
-      <span className="hs-deploy-stat__value">{value}</span>
-      <span className="hs-deploy-stat__label">{label}</span>
-    </div>
-  )
-}
-
 /**
  * "Where it's live" deployment register table.
  * See docs/PDP_WHERE_ITS_LIVE_REDESIGN.md.
  */
 export function DeploymentRegisterTable({ rows }: { rows: DeploymentRow[] }) {
-  const summary = useMemo(() => summarizeDeployments(rows), [rows])
-
   if (rows.length === 0) {
     return (
       <p className="nhsuk-body-m">
@@ -61,22 +49,6 @@ export function DeploymentRegisterTable({ rows }: { rows: DeploymentRow[] }) {
 
   return (
     <div>
-      <div className="hs-deploy-stats" role="list" aria-label="Deployment summary">
-        <DeploymentStat
-          value={summary.total}
-          label={summary.total === 1 ? 'Deployment' : 'Deployments'}
-        />
-        {summary.primaryCount > 0 ? (
-          <DeploymentStat value={summary.primaryCount} label="Primary" />
-        ) : null}
-        {summary.secondaryCount > 0 ? (
-          <DeploymentStat value={summary.secondaryCount} label="Secondary" />
-        ) : null}
-        {summary.communityCount > 0 ? (
-          <DeploymentStat value={summary.communityCount} label="Community" />
-        ) : null}
-      </div>
-
       {/* [Provenance: NHS] Official NHS Table. */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="nhsuk-table">

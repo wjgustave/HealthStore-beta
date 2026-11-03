@@ -1,6 +1,6 @@
 import type { AssuranceDomain, AssuranceDomainStatus } from '@/lib/content/productModel'
 
-const STATUS_LABELS: Record<AssuranceDomainStatus, string> = {
+export const STATUS_LABELS: Record<AssuranceDomainStatus, string> = {
   verified_current: 'Available',
   verified_review_due: 'Verified — review due',
   declared_pending: 'Declared — verification pending',
@@ -9,7 +9,7 @@ const STATUS_LABELS: Record<AssuranceDomainStatus, string> = {
   not_applicable: 'Not applicable',
 }
 
-const STATUS_TAG: Record<AssuranceDomainStatus, string> = {
+export const STATUS_TAG: Record<AssuranceDomainStatus, string> = {
   verified_current: 'nhsuk-tag nhsuk-tag--green',
   verified_review_due: 'nhsuk-tag nhsuk-tag--grey',
   declared_pending: 'nhsuk-tag nhsuk-tag--white',

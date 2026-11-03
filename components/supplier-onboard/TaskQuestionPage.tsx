@@ -1,41 +1,45 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { BackLink } from '@/components/BackLink'
 import { ErrorSummary } from '@/components/eoi/journey/shared'
+import { TEXTAREA_CHARACTER_LIMIT, characterLimitMessage, countCharacters } from '@/lib/characterCount'
+import { CountryAutocomplete } from '@/components/nhs/CountryAutocomplete'
+import { NhsCharacterCount } from '@/components/nhs/NhsCharacterCount'
 import { NhsFileUpload } from '@/components/nhs/NhsFileUpload'
 import { Button } from '@/components/ui/Button'
-import { FormField, Textarea, TextInput } from '@/components/ui/FormField'
+import { FormField, TextInput } from '@/components/ui/FormField'
 import {
   CHECKBOX_SEPARATOR,
   CONFIRMED_VALUE,
   MULTI_UPLOAD_CONFIRMED_SUFFIX,
   UPLOAD_REFERENCE_SUFFIX,
+  countriesFor,
+  countriesProblem,
+  countryFieldId,
   fieldKey,
   formBasePath,
   isAnswered,
-  isFutureIsoDate,
-  isQuestionAnswered,
   isQuestionVisible,
   isTaskComplete,
-  isValidIsoDate,
   nextPageHref,
-  NOT_PROVIDED_ANSWER,
-  optionDisplayLabel,
   optionFollowUp,
   otherDetailsKey,
+  parseCountries,
+  parseCountryDetails,
   parseUploadedDocuments,
   prevPageHref,
-  knownProductName,
-  questionDisplayHint,
-  questionDisplayLabel,
-  questionDisplayPageTitle,
+  questionError,
+  questionErrorFieldId,
+  questionForDisplay,
   questionHasConditionalInput,
   questionKeys,
-  substituteProductName,
+  serializeCountries,
+  serializeCountryDetails,
   serializeUploadedDocuments,
+  taskCaption,
   type UploadedDocument,
   type OnboardingQuestion,
   type OnboardingSection,
@@ -147,57 +151,15 @@ export default function TaskQuestionPage({
   }
 
   function validate(): boolean {
-    if (question.type === 'date' && question.mustBeFuture) {
-      const value = merged[question.id]
-      if (!isValidIsoDate(value)) {
-        setError('Enter a valid date')
-        return false
-      }
-      if (!isFutureIsoDate(value)) {
-        setError('The expiry date must be in the future')
-        return false
-      }
-      return true
-    }
-    if (
-      (question.type === 'radios' || question.type === 'checkboxes') &&
-      isAnswered(merged[question.id]) &&
-      optionFollowUp(question, merged[question.id]) &&
-      !isAnswered(merged[otherDetailsKey(question.id)])
-    ) {
-      const followUp = optionFollowUp(question, merged[question.id])
-      setError(followUp?.inputType === 'url' ? 'Enter a URL' : 'Enter details')
-      return false
-    }
-    if (question.optional || question.type === 'blocked' || question.type === 'info' || isQuestionAnswered(question, merged)) {
-      return true
-    }
-    if (question.type === 'upload') {
-      setError(question.noReference ? 'Select a file' : 'Select a file and enter a reference name')
-      return false
-    }
-    if (question.type === 'date') {
-      setError('Enter a valid date')
-      return false
-    }
-    setError('Enter an answer')
-    return false
+    const message = questionError(question, merged)
+    setError(message)
+    return !message
   }
 
   function saveAndNext() {
     if (!validate()) return
     save()
     if (nextHref) router.push(nextHref)
-  }
-
-  /** Persist an answer that changes the route, then open the next question on that route. */
-  function continueWith(changes: TaskAnswers) {
-    const nextDraft = { ...draft, ...changes }
-    setDraft(nextDraft)
-    const mergedNext = { ...getAnswers(task.id), ...nextDraft }
-    saveTask(task.id, nextDraft, isTaskComplete(task, mergedNext))
-    const href = nextPageHref(formId, task, step, mergedNext)
-    if (href) router.push(href)
   }
 
   function saveAndExit() {
@@ -211,7 +173,7 @@ export default function TaskQuestionPage({
   }
 
   function fillWithSample() {
-    setDraft((d) => ({ ...d, ...sampleAnswerFor(question) }))
+    setDraft((d) => ({ ...d, ...sampleAnswerFor(question, merged) }))
   }
 
   if (offRoute) return null
@@ -221,28 +183,7 @@ export default function TaskQuestionPage({
       <div className="nhsuk-grid-row">
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={backHref} />
-          <ErrorSummary
-            errors={
-              error
-                ? [
-                    {
-                      field:
-                        question.type === 'date'
-                          ? `${question.id}-day`
-                          : question.type === 'upload'
-                            ? `${question.id}-file`
-                            : (question.type === 'radios' || question.type === 'checkboxes') &&
-                                optionFollowUp(question, merged[question.id]) &&
-                                !isAnswered(merged[otherDetailsKey(question.id)])
-                              ? otherDetailsKey(question.id)
-                              : question.id,
-                      message: error,
-                    },
-                  ]
-                : []
-            }
-          />
-          <span className="nhsuk-caption-l">{section.title}</span>
+          <ErrorSummary errors={error ? [{ field: questionErrorFieldId(question, merged), message: error }] : []} />
 
           <form
             noValidate
@@ -253,44 +194,13 @@ export default function TaskQuestionPage({
             }}
           >
             <QuestionField
-              question={(() => {
-                const answersFor = (taskId: string) => (taskId === task.id ? merged : getAnswers(taskId))
-                const productName = knownProductName(answersFor)
-                const display = {
-                  ...question,
-                  label: questionDisplayLabel(question, answersFor),
-                  pageTitle: questionDisplayPageTitle(question, answersFor),
-                  hint: questionDisplayHint(question, answersFor),
-                  fieldHint: question.fieldHint
-                    ? substituteProductName(question.fieldHint, productName)
-                    : question.fieldHint,
-                  details: question.details?.map((item) => ({
-                    ...item,
-                    summary: substituteProductName(item.summary, productName),
-                    text: substituteProductName(item.text, productName),
-                  })),
-                }
-                if (display.type === 'radios' || display.type === 'checkboxes') {
-                  return {
-                    ...display,
-                    options: display.options.map((o) => ({
-                      ...o,
-                      label: optionDisplayLabel(question, o, answersFor),
-                      hint: o.hint ? substituteProductName(o.hint, productName) : o.hint,
-                    })),
-                  }
-                }
-                return display
-              })()}
+              question={questionForDisplay(question, (taskId) => (taskId === task.id ? merged : getAnswers(taskId)))}
               draft={draft}
+              answers={merged}
               patch={patch}
               commit={commit}
               error={error}
-              onDecline={
-                question.type === 'upload' && question.declineLabel
-                  ? () => continueWith({ [question.id]: NOT_PROVIDED_ANSWER })
-                  : undefined
-              }
+              caption={taskCaption(section, task)}
             />
 
             {!blocked && !info && (
@@ -311,9 +221,9 @@ export default function TaskQuestionPage({
                 <Link className="nhsuk-link" href={backHref}>
                   You can change your answer
                 </Link>
-                {' or, if you need help you can '}
+                {' or '}
                 <a className="nhsuk-link" href="#get-support" onClick={(e) => e.preventDefault()}>
-                  Get support
+                  get help
                 </a>
                 {' from the HealthStore team.'}
               </p>
@@ -347,19 +257,40 @@ export default function TaskQuestionPage({
 
 /* ------------------------------------------------------------------------ */
 
+export { questionError, questionErrorFieldId }
+
+function FieldErrorMessage({ id, error }: { id?: string; error?: string }) {
+  if (!error) return null
+  return (
+    <span className="nhsuk-error-message" id={id}>
+      <span className="nhsuk-u-visually-hidden">Error:</span> {error}
+    </span>
+  )
+}
+
 export type QuestionFieldProps = {
   question: OnboardingQuestion
   draft: TaskAnswers
   patch: (changes: TaskAnswers) => void
   /** Patch and persist immediately (see TaskQuestionPage.commit). */
   commit: (changes: TaskAnswers) => void
-  /** Records "Not provided" for an upload and moves to the next question. */
-  onDecline?: () => void
+  /** The task's answers with this page's draft applied; needed by `country-details`. */
+  answers?: TaskAnswers
   /** Inline validation message for the current question. */
   error?: string
+  /** Page caption, shown under the page heading. */
+  caption?: string
 }
 
-type FieldProps = QuestionFieldProps
+type FieldProps = Omit<QuestionFieldProps, 'caption'>
+
+const CaptionContext = createContext<string | undefined>(undefined)
+
+/** The page caption, placed directly after whichever element holds the page `<h1>`. */
+function PageCaption() {
+  const caption = useContext(CaptionContext)
+  return caption ? <span className="nhsuk-caption-l hs-caption-below">{caption}</span> : null
+}
 
 /**
  * Hint body (guidance text plus, for single uploads, the list of expected
@@ -525,7 +456,15 @@ function QuestionDisclosures({ question }: { question: OnboardingQuestion }) {
  * Exported so other one-question-per-page journeys (Company information) render
  * identically.
  */
-export function QuestionField({ question, draft, patch, commit, onDecline, error }: FieldProps) {
+export function QuestionField({ caption, ...props }: QuestionFieldProps) {
+  return (
+    <CaptionContext.Provider value={caption}>
+      <QuestionControls {...props} />
+    </CaptionContext.Provider>
+  )
+}
+
+function QuestionControls({ question, draft, answers, patch, commit, error }: FieldProps) {
   const hintId = `${question.id}-hint`
   const errorId = error ? `${question.id}-error` : undefined
   const hasHint = !!hintContent(question)
@@ -539,6 +478,14 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       const options = question.options.filter((o) => !o.hidden)
       const hasConditional = questionHasConditionalInput(question)
       const detailsKey = otherDetailsKey(question.id)
+      const followUpError =
+        error &&
+        optionFollowUp(question, draft[question.id]) &&
+        !isAnswered(draft[detailsKey])
+          ? error
+          : undefined
+      const groupError = error && !followUpError ? error : undefined
+      const groupErrorId = groupError ? errorId : undefined
       const selected = isCheckbox
         ? (draft[question.id] ?? '').split(CHECKBOX_SEPARATOR).filter(Boolean)
         : []
@@ -552,13 +499,15 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       }
       const pageTitle = question.pageTitle
       const fieldHintId = question.fieldHint ? `${question.id}-field-hint` : undefined
-      const fieldsetDescribedBy = pageTitle ? fieldHintId : describedBy
+      const fieldsetDescribedBy =
+        [pageTitle ? fieldHintId : hasHint ? hintId : undefined, groupErrorId].filter(Boolean).join(' ') || undefined
       return (
         <>
           {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
+          {pageTitle && <PageCaption />}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
-        <div className="nhsuk-form-group">
+        <div className={`nhsuk-form-group${groupError ? ' nhsuk-form-group--error' : ''}`}>
           <fieldset className="nhsuk-fieldset" aria-describedby={fieldsetDescribedBy}>
             {pageTitle ? (
               <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--m">
@@ -568,12 +517,15 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                 </h2>
               </legend>
             ) : (
-              <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
-                <h1 className="nhsuk-fieldset__heading">
-                  {question.label}
-                  {optionalSuffix}
-                </h1>
-              </legend>
+              <>
+                <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
+                  <h1 className="nhsuk-fieldset__heading">
+                    {question.label}
+                    {optionalSuffix}
+                  </h1>
+                </legend>
+                <PageCaption />
+              </>
             )}
             {pageTitle && question.fieldHint && (
               <div className="nhsuk-hint" id={fieldHintId}>
@@ -582,6 +534,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
             )}
             {!pageTitle && <Hint question={question} id={hintId} />}
             {!pageTitle && <QuestionDisclosures question={question} />}
+            <FieldErrorMessage id={groupErrorId} error={groupError} />
             <div
               className={
                 isCheckbox
@@ -633,7 +586,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                         className={isCheckbox ? 'nhsuk-checkboxes__conditional' : 'nhsuk-radios__conditional'}
                         id={conditionalId}
                       >
-                        <div className="nhsuk-form-group">
+                        <div className={`nhsuk-form-group${followUpError ? ' nhsuk-form-group--error' : ''}`}>
                           <label className="nhsuk-label" htmlFor={detailsKey}>
                             {followUp.label}
                           </label>
@@ -642,6 +595,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                               {followUp.hint}
                             </div>
                           )}
+                          <FieldErrorMessage id={followUpError ? `${detailsKey}-error` : undefined} error={followUpError} />
                           <TextInput
                             id={detailsKey}
                             name={detailsKey}
@@ -649,7 +603,10 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                             inputMode={followUpType === 'text' ? undefined : followUpType}
                             autoComplete={followUpType === 'url' ? 'url' : undefined}
                             spellCheck={followUpType === 'url' || followUpType === 'email' ? false : undefined}
-                            aria-describedby={followUpHintId}
+                            aria-describedby={[followUpHintId, followUpError ? `${detailsKey}-error` : undefined]
+                              .filter(Boolean)
+                              .join(' ') || undefined}
+                            aria-invalid={followUpError ? true : undefined}
                             value={draft[detailsKey] ?? ''}
                             onChange={(e) => patch({ [detailsKey]: e.target.value })}
                           />
@@ -671,29 +628,35 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       return (
         <>
           {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
+          {pageTitle && <PageCaption />}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
-          <div className="nhsuk-form-group">
+          <div className={`nhsuk-form-group nhsuk-character-count${error ? ' nhsuk-form-group--error' : ''}`} data-maxlength="500" data-count-type="characters">
             {pageTitle ? (
               <label className="nhsuk-label" htmlFor={question.id}>
                 {question.label}
                 {optionalSuffix}
               </label>
             ) : (
-              <h1 className="nhsuk-label-wrapper">
-                <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
-                  {question.label}
-                  {optionalSuffix}
-                </label>
-              </h1>
+              <>
+                <h1 className="nhsuk-label-wrapper">
+                  <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
+                    {question.label}
+                    {optionalSuffix}
+                  </label>
+                </h1>
+                <PageCaption />
+              </>
             )}
             {!pageTitle && <Hint question={question} id={hintId} />}
             {!pageTitle && <QuestionDisclosures question={question} />}
-            <Textarea
+            <FieldErrorMessage id={errorId} error={error} />
+            <NhsCharacterCount
               id={question.id}
               name={question.id}
               rows={5}
-              aria-describedby={pageTitle ? undefined : describedBy}
+              describedBy={pageTitle ? errorId : describedBy}
+              aria-invalid={error ? true : undefined}
               value={draft[question.id] ?? ''}
               onChange={(e) => patch({ [question.id]: e.target.value })}
             />
@@ -717,7 +680,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       const pageTitle = question.pageTitle
       const fieldHintId = question.fieldHint ? `${question.id}-field-hint` : undefined
       const inputDescribedBy = pageTitle
-        ? [fieldHintId].filter(Boolean).join(' ') || undefined
+        ? [fieldHintId, errorId].filter(Boolean).join(' ') || undefined
         : describedBy
       const input = (
         <TextInput
@@ -729,6 +692,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
           spellCheck={noSpellCheck ? false : undefined}
           className={width}
           aria-describedby={inputDescribedBy}
+          aria-invalid={error ? true : undefined}
           value={draft[question.id] ?? ''}
           onChange={(e) => patch({ [question.id]: e.target.value })}
         />
@@ -736,21 +700,25 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       return (
         <>
           {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
+          {pageTitle && <PageCaption />}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
-          <div className="nhsuk-form-group">
+          <div className={`nhsuk-form-group${error ? ' nhsuk-form-group--error' : ''}`}>
             {pageTitle ? (
               <label className="nhsuk-label nhsuk-u-visually-hidden" htmlFor={question.id}>
                 {question.label}
                 {optionalSuffix}
               </label>
             ) : (
-              <h1 className="nhsuk-label-wrapper">
-                <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
-                  {question.label}
-                  {optionalSuffix}
-                </label>
-              </h1>
+              <>
+                <h1 className="nhsuk-label-wrapper">
+                  <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
+                    {question.label}
+                    {optionalSuffix}
+                  </label>
+                </h1>
+                <PageCaption />
+              </>
             )}
             {!pageTitle && <Hint question={question} id={hintId} />}
             {!pageTitle && <QuestionDisclosures question={question} />}
@@ -759,6 +727,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                 {question.fieldHint}
               </div>
             )}
+            <FieldErrorMessage id={errorId} error={error} />
             {suffix ? (
               <div className="nhsuk-input__wrapper">
                 {input}
@@ -779,10 +748,11 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       return (
         <>
           {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
+          {pageTitle && <PageCaption />}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
-          <div className="nhsuk-form-group">
-            <fieldset className="nhsuk-fieldset" aria-describedby={pageTitle ? undefined : describedBy}>
+          <div className={`nhsuk-form-group${error ? ' nhsuk-form-group--error' : ''}`}>
+            <fieldset className="nhsuk-fieldset" aria-describedby={pageTitle ? errorId : describedBy}>
               {pageTitle ? (
                 <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--m">
                   <h2 className="nhsuk-fieldset__heading">
@@ -791,21 +761,26 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                   </h2>
                 </legend>
               ) : (
-                <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
-                  <h1 className="nhsuk-fieldset__heading">
-                    {question.label}
-                    {optionalSuffix}
-                  </h1>
-                </legend>
+                <>
+                  <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
+                    <h1 className="nhsuk-fieldset__heading">
+                      {question.label}
+                      {optionalSuffix}
+                    </h1>
+                  </legend>
+                  <PageCaption />
+                </>
               )}
               {!pageTitle && <Hint question={question} id={hintId} />}
               {!pageTitle && <QuestionDisclosures question={question} />}
+              <FieldErrorMessage id={errorId} error={error} />
               {question.fields.map((field) => {
                 const key = fieldKey(question.id, field)
                 const id = `${question.id}-${field.key}`
                 const inputType = field.inputType ?? 'text'
+                const emptyRequired = Boolean(error && !field.optional && !isAnswered(draft[key]))
                 return (
-                  <div key={field.key} className="nhsuk-form-group">
+                  <div key={field.key} className={`nhsuk-form-group${emptyRequired ? ' nhsuk-form-group--error' : ''}`}>
                     <label className="nhsuk-label" htmlFor={id}>
                       {field.label}
                       {field.optional ? ' (optional)' : ''}
@@ -818,6 +793,8 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
                       autoComplete={field.autoComplete}
                       spellCheck={inputType === 'url' || inputType === 'email' ? false : undefined}
                       className={field.width}
+                      aria-describedby={error ? errorId : undefined}
+                      aria-invalid={emptyRequired || undefined}
                       value={draft[key] ?? ''}
                       onChange={(e) => patch({ [key]: e.target.value })}
                     />
@@ -846,18 +823,37 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
 
     case 'upload':
       return question.multiple ? (
-        <MultipleFileUpload question={question} draft={draft} patch={patch} commit={commit} onDecline={onDecline} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
+        <MultipleFileUpload question={question} draft={draft} patch={patch} commit={commit} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
       ) : (
-        <UploadField question={question} draft={draft} patch={patch} commit={commit} onDecline={onDecline} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
+        <UploadField question={question} draft={draft} patch={patch} commit={commit} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
+      )
+
+    case 'countries':
+      return <CountriesField question={question} draft={draft} patch={patch} commit={commit} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
+
+    case 'country-details':
+      return (
+        <CountryDetailsField
+          question={question}
+          draft={draft}
+          answers={{ ...answers, ...draft }}
+          patch={patch}
+          commit={commit}
+          describedBy={describedBy}
+          hintId={hintId}
+          optionalSuffix={optionalSuffix}
+          error={error}
+        />
       )
 
     case 'multi-upload':
-      return <MultiUploadField question={question} draft={draft} patch={patch} commit={commit} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} />
+      return <MultiUploadField question={question} draft={draft} patch={patch} commit={commit} describedBy={describedBy} hintId={hintId} optionalSuffix={optionalSuffix} error={error} />
 
     case 'blocked':
       return (
         <>
           <h1 className="nhsuk-heading-l">{question.label}</h1>
+          <PageCaption />
           <Hint question={question} id={hintId} />
         </>
       )
@@ -866,6 +862,7 @@ export function QuestionField({ question, draft, patch, commit, onDecline, error
       return (
         <>
           <h1 className="nhsuk-heading-l">{question.label}</h1>
+          <PageCaption />
           {question.hint ? (
             <div className="nhsuk-body" id={hintId}>
               {richText(question.hint, question.hintLink)}
@@ -902,6 +899,7 @@ function DateField({ question, draft, patch, describedBy, hintId, optionalSuffix
             {optionalSuffix}
           </h1>
         </legend>
+        <PageCaption />
         <Hint question={question} id={hintId} />
         {error && (
           <span className="nhsuk-error-message" id={errorId}>
@@ -949,11 +947,9 @@ function formatCompactSize(bytes: number): string {
  * Several files, chosen together or one after another. Each added file is listed
  * under the control with its size, an Uploaded tag and a Remove action.
  */
-function MultipleFileUpload({ question, draft, commit, onDecline, optionalSuffix }: SubFieldProps) {
+function MultipleFileUpload({ question, draft, commit, optionalSuffix, error }: SubFieldProps) {
   const fileId = `${question.id}-file`
-  const declined = draft[question.id] === NOT_PROVIDED_ANSWER
-  const documents = declined ? [] : parseUploadedDocuments(draft[question.id])
-  const declineLabel = question.type === 'upload' ? question.declineLabel : undefined
+  const documents = parseUploadedDocuments(draft[question.id])
   const footnote = question.type === 'upload' ? question.footnote : undefined
   const guide = question.type === 'upload' ? question.documents : undefined
   const hintSeparately = !!question.details?.length && !!guide?.length
@@ -982,6 +978,7 @@ function MultipleFileUpload({ question, draft, commit, onDecline, optionalSuffix
         id={fileId}
         multiple
         labelAsPageHeading
+        afterHeading={<PageCaption />}
         label={
           <>
             {question.label}
@@ -1003,6 +1000,7 @@ function MultipleFileUpload({ question, draft, commit, onDecline, optionalSuffix
             )}
           </>
         }
+        error={error}
         onFileChange={() => {}}
         onFilesChange={addFiles}
       />
@@ -1035,32 +1033,21 @@ function MultipleFileUpload({ question, draft, commit, onDecline, optionalSuffix
         </ul>
       )}
       {footnote && <p className="nhsuk-body">{footnote}</p>}
-      {declineLabel && onDecline && (
-        <p className="nhsuk-body">
-          <a
-            className="nhsuk-link"
-            href="#cant-provide"
-            onClick={(e) => {
-              e.preventDefault()
-              onDecline()
-            }}
-          >
-            {declineLabel}
-          </a>
-        </p>
-      )}
     </>
   )
 }
 
 /** NHS File upload plus a required reference name (omitted when `noReference` is set). */
-function UploadField({ question, draft, patch, onDecline, optionalSuffix, error }: SubFieldProps) {
+function UploadField({ question, draft, patch, optionalSuffix, error }: SubFieldProps) {
   const fileId = `${question.id}-file`
   const referenceKey = `${question.id}${UPLOAD_REFERENCE_SUFFIX}`
   const withReference = !(question.type === 'upload' && question.noReference)
-  const declineLabel = question.type === 'upload' ? question.declineLabel : undefined
   const storedFileName = draft[question.id] ?? ''
-  const declined = storedFileName === NOT_PROVIDED_ANSWER
+  const fileMissing = !storedFileName
+  const refMissing = withReference && !isAnswered(draft[referenceKey])
+  const fileError = error && fileMissing ? error : undefined
+  const refError = error && refMissing ? error : undefined
+  const refErrorId = refError ? `${referenceKey}-error` : undefined
   // A file input cannot be re-populated from storage, so on return visits we
   // show the saved name until the user picks a file in this session.
   const [pickedThisSession, setPickedThisSession] = useState(false)
@@ -1070,6 +1057,7 @@ function UploadField({ question, draft, patch, onDecline, optionalSuffix, error 
       <NhsFileUpload
         id={fileId}
         labelAsPageHeading
+        afterHeading={<PageCaption />}
         label={
           <>
             {question.label}
@@ -1078,51 +1066,189 @@ function UploadField({ question, draft, patch, onDecline, optionalSuffix, error 
         }
         hint={hintContent(question)}
         afterHint={<QuestionDisclosures question={question} />}
-        error={error}
+        error={fileError}
         onFileChange={(file) => {
           setPickedThisSession(true)
           patch({ [question.id]: file?.name ?? '' })
         }}
         className="nhsuk-u-margin-bottom-3"
       />
-      {storedFileName && !pickedThisSession && !declined && (
+      {storedFileName && !pickedThisSession && (
         <p className="nhsuk-body-m nhsuk-u-margin-bottom-5">
           Previously selected file: <strong>{storedFileName}</strong>
         </p>
       )}
-      {declineLabel && onDecline && (
-        <p className="nhsuk-body">
-          <a
-            className="nhsuk-link"
-            href="#cant-provide"
-            onClick={(e) => {
-              e.preventDefault()
-              onDecline()
-            }}
-          >
-            {declineLabel}
-          </a>
-        </p>
-      )}
 
       {withReference && (
-        <div className="nhsuk-form-group">
+        <div className={`nhsuk-form-group${refError ? ' nhsuk-form-group--error' : ''}`}>
           <label className="nhsuk-label" htmlFor={referenceKey}>
             Required reference name
           </label>
           <div className="nhsuk-hint" id={`${referenceKey}-hint`}>
             Label the document with your company name, the question number and the date of submission.
           </div>
+          <FieldErrorMessage id={refErrorId} error={refError} />
           <TextInput
             className="nhsuk-input--width-20"
             id={referenceKey}
             name={referenceKey}
-            aria-describedby={`${referenceKey}-hint`}
+            aria-describedby={[`${referenceKey}-hint`, refErrorId].filter(Boolean).join(' ')}
+            aria-invalid={refError ? true : undefined}
             value={draft[referenceKey] ?? ''}
             onChange={(e) => patch({ [referenceKey]: e.target.value })}
           />
         </div>
       )}
+    </>
+  )
+}
+
+type CountryRow = { key: number; value: string }
+
+let lastCountryRowKey = 0
+const nextCountryRowKey = () => (lastCountryRowKey += 1)
+
+function countryRows(stored: string | undefined): CountryRow[] {
+  const values = parseCountries(stored)
+  return (values.length > 0 ? values : ['']).map((value) => ({ key: nextCountryRowKey(), value }))
+}
+
+/**
+ * One or more countries. [Provenance: Scottish Government "Add more fields" pattern,
+ * https://designsystem.gov.scot/patterns/add-more-fields, with GOV.UK country autocomplete]
+ *
+ * Each row is a country autocomplete; "Add another country" appends a row and
+ * focuses it, and every row has Remove once there is more than one.
+ */
+function CountriesField({ question, draft, patch, hintId, optionalSuffix, error }: SubFieldProps) {
+  const stored = draft[question.id]
+  const [rows, setRows] = useState<CountryRow[]>(() => countryRows(stored))
+  const [focusKey, setFocusKey] = useState<number | undefined>()
+  /** Last value seen or written here; a different value set from outside (prefill, sample) re-seeds the rows. */
+  const [known, setKnown] = useState(stored)
+  if (stored !== known) {
+    setKnown(stored)
+    setRows(countryRows(stored))
+    setFocusKey(undefined)
+  }
+
+  function update(next: CountryRow[]) {
+    const value = serializeCountries(next.map((r) => r.value))
+    setRows(next)
+    setKnown(value)
+    patch({ [question.id]: value })
+  }
+
+  const errorRow = error ? (countriesProblem(question, draft)?.row ?? 0) : -1
+
+  return (
+    <div className={`nhsuk-form-group${error ? ' nhsuk-form-group--error' : ''}`}>
+      <fieldset className="nhsuk-fieldset" aria-describedby={hintContent(question) ? hintId : undefined}>
+        <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
+          <h1 className="nhsuk-fieldset__heading">
+            {question.label}
+            {optionalSuffix}
+          </h1>
+        </legend>
+        <PageCaption />
+        <Hint question={question} id={hintId} />
+        <QuestionDisclosures question={question} />
+        {rows.map((row, index) => {
+          const id = countryFieldId(question.id, index)
+          const rowError = index === errorRow ? error : undefined
+          const name = rows.length > 1 ? `Country ${index + 1}` : 'Country'
+          return (
+            <div key={row.key} className={`nhsuk-form-group${rowError ? ' nhsuk-form-group--error' : ''}`}>
+              <label className="nhsuk-label" htmlFor={id}>
+                {name}
+              </label>
+              <FieldErrorMessage id={rowError ? `${id}-error` : undefined} error={rowError} />
+              <div className="nhsuk-u-width-two-thirds" style={{ minWidth: '16rem' }}>
+                <CountryAutocomplete
+                  id={id}
+                  value={row.value}
+                  error={!!rowError}
+                  autoFocus={row.key === focusKey}
+                  onChange={(value) => update(rows.map((r) => (r.key === row.key ? { ...r, value } : r)))}
+                />
+              </div>
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  className="hs-link-button nhsuk-u-margin-top-2"
+                  onClick={() => update(rows.filter((r) => r.key !== row.key))}
+                >
+                  Delete<span className="nhsuk-u-visually-hidden"> {name.toLowerCase()}</span>
+                </button>
+              )}
+            </div>
+          )
+        })}
+        <div className="nhsuk-u-margin-top-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              const key = nextCountryRowKey()
+              setFocusKey(key)
+              update([...rows, { key, value: '' }])
+            }}
+          >
+            Add another country
+          </Button>
+        </div>
+      </fieldset>
+    </div>
+  )
+}
+
+/**
+ * A text area for each country listed on the previous page, under one heading.
+ * Stored JSON-encoded as `{ [country]: text }`.
+ */
+function CountryDetailsField({ question, draft, answers = {}, patch, hintId, error }: SubFieldProps) {
+  const countries = countriesFor(question, answers)
+  const details = parseCountryDetails(draft[question.id])
+  return (
+    <>
+      <h1 className="nhsuk-heading-l">{question.label}</h1>
+      <PageCaption />
+      {question.hint && (
+        <p className="nhsuk-body" id={hintId}>
+          {question.hint}
+        </p>
+      )}
+      {countries.map((country, index) => {
+        const id = countryFieldId(question.id, index)
+        const value = details[country] ?? ''
+        const rowError = !error
+          ? undefined
+          : countCharacters(value) > TEXTAREA_CHARACTER_LIMIT
+            ? characterLimitMessage(`Safeguards for ${country}`)
+            : !isAnswered(value)
+              ? `Set out the safeguards for ${country}`
+              : undefined
+        return (
+          <Fragment key={country}>
+            {index > 0 && <hr className="nhsuk-section-break nhsuk-section-break--m nhsuk-section-break--visible" />}
+            <div className={`nhsuk-form-group nhsuk-character-count${rowError ? ' nhsuk-form-group--error' : ''}`} data-maxlength="500" data-count-type="characters">
+              <label className="nhsuk-label nhsuk-label--s" htmlFor={id}>
+                {country}
+              </label>
+              <FieldErrorMessage id={rowError ? `${id}-error` : undefined} error={rowError} />
+              <NhsCharacterCount
+                id={id}
+                name={id}
+                rows={5}
+                describedBy={rowError ? `${id}-error` : undefined}
+                aria-invalid={rowError ? true : undefined}
+                value={value}
+                onChange={(e) => patch({ [question.id]: serializeCountryDetails({ ...details, [country]: e.target.value }) })}
+              />
+            </div>
+          </Fragment>
+        )
+      })}
     </>
   )
 }
@@ -1149,13 +1275,15 @@ function formatFileSize(bytes: number): string {
  *
  * Prototype: no upload backend — file metadata only, "upload" is instantaneous.
  */
-function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuffix }: SubFieldProps) {
+function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuffix, error }: SubFieldProps) {
   const fileId = `${question.id}-file`
   const referenceId = `${question.id}-reference`
   const confirmedKey = `${question.id}${MULTI_UPLOAD_CONFIRMED_SUFFIX}`
   const expectedDocuments = question.type === 'multi-upload' ? question.documents ?? [] : []
   const documents = parseUploadedDocuments(draft[question.id])
   const confirmed = draft[confirmedKey] === CONFIRMED_VALUE
+  const fileError = error && documents.length === 0 ? error : undefined
+  const confirmError = error && documents.length > 0 ? error : undefined
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reference, setReference] = useState('')
@@ -1186,12 +1314,19 @@ function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuff
     commit({ [question.id]: serializeUploadedDocuments(documents.filter((_, i) => i !== index)) })
   }
 
+  const uploadErrors = [
+    errors.file ? { field: fileId, message: errors.file } : undefined,
+    errors.reference ? { field: referenceId, message: errors.reference } : undefined,
+  ].filter((item): item is { field: string; message: string } => Boolean(item))
+
   return (
     <>
+      <ErrorSummary id={`${question.id}-upload-errors`} errors={uploadErrors} />
       <h1 className="nhsuk-heading-l">
         {question.label}
         {optionalSuffix}
       </h1>
+      <PageCaption />
       <Hint question={question} id={hintId} />
 
       {/* NHS Details — https://service-manual.nhs.uk/design-system/components/details */}
@@ -1249,7 +1384,7 @@ function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuff
         id={fileId}
         label="Upload a file"
         labelSize="s"
-        error={errors.file}
+        error={errors.file ?? fileError}
         onFileChange={(file) => {
           setPendingFile(file)
           if (file) setErrors((e) => ({ ...e, file: undefined }))
@@ -1280,7 +1415,12 @@ function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuff
       </Button>
 
       {/* Deliberately wide gap (96px) to separate the completion gate from the upload controls. */}
-      <div className="nhsuk-form-group nhsuk-u-margin-top-6">
+      <div className={`nhsuk-form-group nhsuk-u-margin-top-6${confirmError ? ' nhsuk-form-group--error' : ''}`}>
+        {confirmError && (
+          <span className="nhsuk-error-message" id={`${confirmedKey}-error`}>
+            <span className="nhsuk-u-visually-hidden">Error:</span> {confirmError}
+          </span>
+        )}
         <div className="nhsuk-checkboxes">
           <div className="nhsuk-checkboxes__item">
             <input
@@ -1289,6 +1429,7 @@ function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuff
               name={confirmedKey}
               type="checkbox"
               checked={confirmed}
+              aria-describedby={confirmError ? `${confirmedKey}-error` : undefined}
               onChange={(e) => patch({ [confirmedKey]: e.target.checked ? CONFIRMED_VALUE : '' })}
             />
             <label className="nhsuk-label nhsuk-checkboxes__label" htmlFor={confirmedKey}>

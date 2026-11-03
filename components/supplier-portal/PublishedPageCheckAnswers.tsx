@@ -84,10 +84,10 @@ export default function PublishedPageCheckAnswers({
       <div className="nhsuk-grid-row">
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={editHref} />
-          <span className="nhsuk-caption-l">{caption}</span>
           <h1 ref={headingRef} tabIndex={-1} className="nhsuk-heading-xl outline-none">
             Check your answers before submitting
           </h1>
+          <span className="nhsuk-caption-l hs-caption-below">{caption}</span>
           <p className="nhsuk-body-m">Only the fields you have changed are shown below.</p>
 
           <h2 className="nhsuk-heading-m nhsuk-u-margin-top-7">Your changes</h2>

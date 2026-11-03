@@ -1,18 +1,27 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formBasePath } from '@/lib/supplierOnboarding'
+import { PORTAL_PATHS } from '@/lib/supplierPortal'
 import { useOnboardingProgress } from './useOnboardingProgress'
 
 /**
  * Onboarding submitted — confirmation. [Provenance: NHS]
  *
- * Mirrors the Expression of interest confirmation: NHS Panel with the reference
- * number, then "What happens next". Guard: without a recorded submission there
- * is nothing to confirm, so direct visits return to the task list.
+ * NHS Panel with the product name, then a short next-step paragraph (with a
+ * Manage products link) and a Dashboard link. Guard: without a recorded
+ * submission there is nothing to confirm, so direct visits return to the task
+ * list.
  */
-export default function OnboardingConfirmationPage({ formId }: { formId: string }) {
+export default function OnboardingConfirmationPage({
+  formId,
+  productName,
+}: {
+  formId: string
+  productName: string
+}) {
   const router = useRouter()
   const { hydrated, submission } = useOnboardingProgress(formId)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -36,21 +45,17 @@ export default function OnboardingConfirmationPage({ formId }: { formId: string 
         <div className="nhsuk-grid-column-two-thirds">
           <div className="nhsuk-panel" style={{ textAlign: 'center' }}>
             <h1 ref={headingRef} tabIndex={-1} className="nhsuk-panel__title outline-none">
-              Onboarding form submitted
+              {productName} has been onboarded
             </h1>
-            <div className="nhsuk-panel__body">
-              Your reference number
-              <br />
-              <strong>{submission.reference}</strong>
-            </div>
           </div>
           <p style={{ fontSize: 'var(--text-body)' }}>
-            We have sent you a confirmation email with your reference number and a copy of your answers.
-          </p>
-          <h2 className="nhsuk-heading-m nhsuk-u-margin-top-6">What happens next</h2>
-          <p style={{ fontSize: 'var(--text-body)' }}>
             Your product has been onboarded to the NHS HealthStore. You can keep its information and
-            documents up to date from Manage products.
+            documents up to date from <Link className="nhsuk-link" href={PORTAL_PATHS.manage}>Manage products</Link>.
+          </p>
+          <p style={{ fontSize: 'var(--text-body)' }}>
+            <Link className="nhsuk-link" href={PORTAL_PATHS.dashboard}>
+              Dashboard
+            </Link>
           </p>
         </div>
       </div>

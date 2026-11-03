@@ -4,7 +4,10 @@ The supplier dashboard is the home page after sign-in. From there, a supplier ei
 
 Everything a supplier submits is accepted straight away. Company chapters apply as soon as they are submitted, an onboarding form is onboarded when it is submitted, product changes become the current version, and store pages are published.
 
-The prototype uses a made-up supplier, **Aurora Health Limited** (contact Brandson Sanderson), with one product, **Respira CBT**, a digital CBT programme for adults with generalised anxiety disorder. Respira CBT is both the sample onboarding form and the sample onboarded product.
+The prototype uses a made-up supplier, **Aurora Health Limited** (contact Brandson Sanderson), with two made-up products:
+
+- **Respira CBT**, a digital CBT programme for adults with generalised anxiety disorder, is the sample onboarding form.
+- **BreatheWell COPD**, remote monitoring and self-management for people with COPD, is the sample onboarded product, under Manage products and Published pages. Its held record is in `lib/portalProducts/breathewellCopd.ts`.
 
 ## Statuses
 
@@ -93,7 +96,7 @@ The form has four sections and seven tasks. Each task is a run of one-question-p
 1. Product details (A2 product name, A3 version number, A4 type of product, with a "Give details" box on the same page when Other is chosen)
 2. Value proposition (Section B, not scored)
 3. Assessed standards: Clinical safety (C1), Data protection (C2), Technical security (C3), Interoperability (C4)
-4. Key principles for success: Usability and accessibility (Section D)
+4. Usability and accessibility (Section D)
 
 Once the product name (A2) is answered, later questions, hints and page titles say the product's name instead of "your product" or "the product" (for example, "Does Respira CBT qualify as software or AI as a medical device?").
 
@@ -132,7 +135,7 @@ flowchart TD
   check --> change[Change an answer]
   change --> question
   check --> confirm[Confirm and submit]
-  confirm --> done[Confirmation, with a reference number: product onboarded]
+  confirm --> done[Confirmation: product has been onboarded]
 ```
 
 Save and Next saves the answer and goes to the next page on the supplier's route. At the end of a task it carries straight on into the first page of the next task, across sections, so a supplier can go through the whole form without returning to the task list. The last page of the form (D1.5, or D1.4 when the product is not a web or mobile application) has no Save and Next.
@@ -145,7 +148,9 @@ Two prototype shortcuts help with testing. Question pages have a "Fill with samp
 
 ### Product onboarding question routes
 
-Save and next only visits the questions on the supplier's route. Questions that are skipped are left out of the Completed check and of Check your answers. Changing an earlier answer can bring a skipped question back; its previous answer, if any, is kept. "Provided / Not provided" questions are followed by a separate upload (or text) page when the answer is Provided.
+Save and next only visits the questions on the supplier's route. Questions that are skipped are left out of the Completed check and of Check your answers. Changing an earlier answer can bring a skipped question back; its previous answer, if any, is kept.
+
+Every document the supplier may not have is asked for in two steps, like D1.1: a "Can you provide…?" page with Yes ("You can upload this on the next page") or "No, I can't provide this right now", then the upload page only on Yes. No goes straight to the next question, and the document shows as Not provided on the product page. This applies to B4, C1.2.3, both C1.2.4 uploads, C2.2.1, C2.2.2, C3.1, C3.3 and D1.1.
 
 #### Section A: Product details
 
@@ -168,9 +173,9 @@ No branching apart from the B4 upload.
 flowchart TD
   B1["B1 Intended use of the product"] --> B2["B2 What the product does and how it is used"]
   B2 --> B3["B3 Intended users, benefits, validation"]
-  B3 --> B4{"B4 Data flow with the health IT system"}
-  B4 -->|Provided| B4up["Upload data flow or user journey map"]
-  B4 -->|Not available| toC1[Go to C1]
+  B3 --> B4{"B4 Can you provide the data flow with the health IT system?"}
+  B4 -->|Yes| B4up["Upload journey maps and data flows"]
+  B4 -->|"No, I can't provide this right now"| toC1[Go to C1]
   B4up --> toC1
 ```
 
@@ -183,17 +188,22 @@ flowchart TD
   intro["Clinical safety interstitial"] --> C111{"C1.1.1 Software or AI as a medical device?"}
   C111 -->|Yes| PAQ["Upload PAQ form"]
   PAQ --> C112{"C1.1.2 Product classification"}
-  C112 -->|Standalone device| toC2
-  C112 -->|Part of an IT system| C12{"C1.2 Supports real-time or direct care?"}
+  C112 -->|"Standalone device / Part of an IT system"| C12{"C1.2 Supports real-time or direct care?"}
   C111 -->|No| C12
   C12 -->|Yes| C122["C1.2.2 DCB0129 Compliance"]
   C12 -->|No| C121["C1.2.1 Justify why out of scope of DCB0129"]
   C121 --> toC2
-  C122 -->|Yes| C123["C1.2.3 Upload clinical risk management system"]
+  C122 -->|Yes| C123{"C1.2.3 Can you provide your clinical risk management system?"}
   C122 -->|No| C122stop["Clinical risk management is required before you can continue"]
-  C123 --> C124["C1.2.4 Upload Clinical Safety Case Report"]
-  C124 --> C124h["C1.2.4 Upload Hazard Log"]
-  C124h --> C125["C1.2.5 Clinical Safety Officer details"]
+  C123 -->|Yes| C123up["Upload clinical risk management system"]
+  C123 -->|No| C124
+  C123up --> C124{"C1.2.4 Can you provide your Clinical Safety Case Report?"}
+  C124 -->|Yes| C124up["Upload Clinical Safety Case Report"]
+  C124 -->|No| C124h
+  C124up --> C124h{"C1.2.4 Can you provide your Hazard Log?"}
+  C124h -->|Yes| C124hup["Upload Hazard Log"]
+  C124h -->|No| C125
+  C124hup --> C125["C1.2.5 Clinical Safety Officer details"]
   C125 --> toC2[Go to C2]
 ```
 
@@ -205,15 +215,17 @@ An interstitial page on UK GDPR compliance is shown before any C2 question. C2.2
 flowchart TD
   intro["Data protection interstitial"] --> C21{"C2.1 Compliant with annual DSPT?"}
   C21 -->|Yes| C22["C2.2 Processes personal data?"]
-  C21 -->|No access to patient data or national NHS systems| C22
+  C21 -->|Not applicable| C22
   C21 -->|No| C21stop["You must be compliant with the DSPT"]
   C22 -->|No| toC3
-  C22 -->|Yes| C221["C2.2.1 Upload ICO registration evidence"]
-  C221 -->|Uploaded| C221exp["ICO registration expiry date"]
-  C221 -->|Can't provide| C222
-  C221exp --> C222["C2.2.2 Upload DPIA"]
-  C222 -->|Uploaded| C223
-  C222 -->|Can't provide| C223
+  C22 -->|Yes| C221{"C2.2.1 Can you provide ICO registration evidence?"}
+  C221 -->|Yes| C221up["Upload ICO registration evidence"]
+  C221up --> C221exp["ICO registration expiry date"]
+  C221 -->|No| C222
+  C221exp --> C222{"C2.2.2 Can you provide the DPIA?"}
+  C222 -->|Yes| C222up["Upload DPIA"]
+  C222 -->|No| C223
+  C222up --> C223
   C223{"C2.2.3 How will you provide transparency information?"}
   C223 -->|A link| C224
   C223 -->|Upload a document| C223up["Upload the transparency documentation"]
@@ -225,9 +237,12 @@ flowchart TD
   C224 -->|Not applicable| C225
   C224up --> C225{"C2.2.5 Where is data stored and processed?"}
   C225 -->|UK only| toC3[Go to C3]
-  C225 -->|Outside the UK| C226["C2.2.6 Country and safeguards"]
-  C226 --> toC3
+  C225 -->|Outside the UK| C226["C2.2.6 Countries where data is stored or processed (autocomplete, Add another country)"]
+  C226 --> C226s["C2.2.6 Compliance safeguards: a text area for each country"]
+  C226s --> toC3
 ```
+
+C2.2.6 uses the GOV.UK country autocomplete (countries only, UK excluded) with the Scottish Government "Add more fields" pattern. The next page asks for the safeguards for each country listed.
 
 #### C3: Technical security
 
@@ -235,15 +250,15 @@ An interstitial page on security standards is shown before any C3 question.
 
 ```mermaid
 flowchart TD
-  intro["Technical security interstitial"] --> C31["C3.1 Upload Cyber Essentials certificate"]
-  C31 -->|Uploaded| C31exp["Cyber Essentials certificate expiry date"]
-  C31 -->|Can't provide| C32
-  C31exp --> C32{"C3.2 Signed the NHS Cyber Security Charter?"}
-  C32 -->|Yes| toC4a["Go to C4 (rest of C3 skipped)"]
-  C32 -->|No| C33["C3.3 Upload penetration test summary"]
-  C33 -->|Uploaded| C34
-  C33 -->|Can't provide| C34
-  C34["C3.4 Software Security Code of Practice"]
+  intro["Technical security interstitial"] --> C31{"C3.1 Can you provide a Cyber Essentials certificate?"}
+  C31 -->|Yes| C31up["Upload Cyber Essentials certificate"]
+  C31up --> C31exp["Cyber Essentials certificate expiry date"]
+  C31 -->|No| C32
+  C31exp --> C32["C3.2 Signed the NHS Cyber Security Charter?"]
+  C32 -->|"Yes / No"| C33{"C3.3 Can you provide a penetration test summary?"}
+  C33 -->|Yes| C33up["Upload penetration test summary"]
+  C33 -->|No| C34
+  C33up --> C34["C3.4 Software Security Code of Practice"]
   C34 --> C35["C3.5 Plan for MFA on all accounts?"]
   C35 --> C351["C3.5.1 MFA on privileged supplier access?"]
   C351 --> C36["C3.6 Logging and reporting defined?"]
@@ -286,9 +301,9 @@ D1.4 first asks whether the product is a web or mobile application. No ends Sect
 
 ```mermaid
 flowchart TD
-  D11{"D1.1 Fit with care pathways or staff journeys"}
+  D11{"D1.1 Can you provide how the product fits care pathways or staff journeys?"}
   D11 -->|Yes| D11up["Upload care pathways or staff journey documentation"]
-  D11 -->|No| D12
+  D11 -->|"No, I can't provide this right now"| D12
   D11up --> D12["D1.2 Usability testing with intended users?"]
   D12 --> D13["D1.3 Read the Accessible Information Standard?"]
   D13 --> D14{"D1.4 Is the product a web or mobile application?"}
@@ -305,14 +320,19 @@ flowchart TD
 
 ## Update an existing product
 
-Dashboard, then Product management, then Manage products. The sample product is Respira CBT, which starts as Up to date. A supplier can change the product summary, who it is for, the support email, and the assurance documents.
+Dashboard, then Product management, then Manage products. The sample product is BreatheWell COPD, which starts as Up to date.
+
+The product's page shows everything given in onboarding, laid out like the onboarding form: one numbered heading per section, and one NHS summary list per task with only the questions on the supplier's route. Each Change link opens the same question page as onboarding (`/supplier-portal/products/manage/[productId]/[task]/[step]`), with the same hints, validation and follow-up questions. Documents show the latest version only and can be replaced, not deleted.
 
 ```mermaid
 flowchart TD
   products[Manage products] --> product[Open a product]
-  product --> view[Content and documents]
-  view --> edit[Change one field]
-  edit --> save[Save and exit]
+  product --> view[Answers by onboarding section and task]
+  view --> edit[Change an answer]
+  edit --> followUp{Answer opens a follow-up question?}
+  followUp -->|Yes| next[Answer the follow-up]
+  next --> save
+  followUp -->|No| save[Save and continue]
   save --> draft[Status becomes Draft changes]
   draft --> view
   view --> canSubmit{Draft changes?}
@@ -324,26 +344,52 @@ flowchart TD
   done --> current[Status: Up to date]
 ```
 
-Draft changes are not used until they are submitted. Submit changes only appears once there are draft changes. Check your answers lists only the fields that differ from the current version. Confirming makes them the current version straight away and the status returns to Up to date.
+Draft changes are not used until they are submitted, including on the product page. Submit changes only appears once there are draft changes. Check your answers lists only the questions that differ from the current version, grouped by section and task. Confirming makes them the current version straight away and the status returns to Up to date.
 
-## Publish or update a store page
+## Publish or update the supplier page
 
-Dashboard, then Published pages. There is a page for each product and one supplier page. The supplier edits the public wording on one page, with Submit changes, Save and exit, and Cancel and exit. Content that came from onboarding is shown on the page and cannot be changed here. Preview changes opens the store page in a new window.
+Dashboard, then Published pages, then the supplier page. The supplier edits the public wording on one page, with Submit changes, Save and exit, and Cancel and exit. Content that came from onboarding is shown on the page and cannot be changed here.
+
+## Publish or update a product page
+
+Dashboard, then Published pages, then a product. The product page hub lists every section of the Commissioning Store product page in the order commissioners see it. Each section the supplier writes has its own page, opened from its Change links (`/supplier-portal/published/products/[productId]/[section]`).
+
+| Section on the store | Where it comes from |
+|---|---|
+| The problem X addresses | Supplier writes it |
+| How X changes a treatment pathway | Supplier writes bullet points and builds the current and new pathway step by step. The diagram and text version are generated |
+| What using X could mean for patients, What it could be worth | Worked out from held data. Not shown in the editor |
+| Funding levers and tariff alignment | Generic assumed data. Not shown in the editor |
+| Assurance and evidence | Worked out from the onboarding answers in Manage products. Shown read-only on the hub |
+| Clinical publications and evaluations | Held publications, plus any the supplier adds (type, title, where the study took place, outcome summary, optional link) |
+| NICE guidance | Held. Not shown in the editor |
+| Making it work at your site | Supplier writes the Clinical and human wrapper, What you need locally and Timeline to go-live, with heavy hint text |
+| Local prerequisites | Prepopulated from the held record and the onboarding answers (for example, a DPIA when the product processes personal data). The supplier can remove or add items |
+| Supplier support | Supplier writes it |
+| NHS experience, Case studies and evaluations | Held sites and case studies, plus any the supplier adds |
+| How to commission and procure | Held. Not shown in the editor |
+| Resources | Supplier adds a demo link and a documentation link |
 
 ```mermaid
 flowchart TD
-  pages[Published pages] --> page[Open a product page or the supplier page]
-  page --> edit[Edit your content]
-  edit --> save[Save and exit]
-  save --> first{Has this page been published before?}
+  pages[Published pages] --> hub[Product page hub]
+  hub --> section[Change a section]
+  section --> saveSection[Save and continue]
+  saveSection --> first{Has this page been published before?}
   first -->|No| unpublished[Status: Unpublished]
   first -->|Yes| changes[Status: Unpublished changes]
   changes --> live[Commissioners still see the published version]
-  edit --> submit[Submit changes]
+  unpublished --> hub
+  changes --> hub
+  hub --> preview[Preview page, in a new tab, with unpublished changes]
+  hub --> submit[Submit changes]
   submit --> check[Check your answers]
+  check --> section
   check --> confirm[Confirm and submit]
   confirm --> published[Confirmation: page published]
-  published --> visible[Status: Published. Commissioners see the new version]
+  published --> visible[Status: Published. Store link opens the published version]
 ```
 
-A page that has never been published starts as Unpublished, so commissioners cannot see it, and it is listed under Needs your attention. Submitting publishes it straight away. Later saves become Unpublished changes, and the live page stays as it was until the new version is submitted.
+Preview page (`/supplier-portal/published/products/[productId]/preview`) renders the page with the same components as the Commissioning Store, including unpublished changes. The Store link on the hub adds `?version=published` to show only what is published.
+
+A page that has never been published starts as Unpublished, so commissioners cannot see it, and it is listed under Needs your attention. Submitting publishes it straight away. On the first submission Check your answers lists every section; later it lists only what changed. Later saves become Unpublished changes, and the live page stays as it was until the new version is submitted.

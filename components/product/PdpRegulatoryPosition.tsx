@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react'
+import type { App } from '@/lib/data'
 import type { ProductNarrative } from '@/lib/content/productModel'
+import { niceTechGuidanceRefs } from '@/lib/pdpEvidence'
 import { STORE_ACCENT } from '@/lib/storeAccent'
 
 type RegFact = { label: string; value: ReactNode }
 
 /**
- * Builds the regulatory-position facts (NICE recommendation, device class,
- * DTAC status) from a narrative. Shared by the assurance section and the
- * product overview teaser so both show the same facts.
+ * Builds the regulatory-position facts (NICE recommendation, HTG / MTG guidance,
+ * device class, DTAC status) from a narrative. Shared by the assurance section and
+ * the product overview teaser; HTG / MTG rows are only added when `app` is passed.
  */
-export function buildRegulatoryFacts(narrative: ProductNarrative): RegFact[] {
+export function buildRegulatoryFacts(narrative: ProductNarrative, app?: App): RegFact[] {
   const reg = narrative.regulatory_position
   const linkStyle = { color: STORE_ACCENT }
   const facts: RegFact[] = []
@@ -25,6 +27,29 @@ export function buildRegulatoryFacts(narrative: ProductNarrative): RegFact[] {
           {noRecommendation ? <span className="block">{reg.nice.status}</span> : null}
           <span className="block">Last updated {reg.nice.last_updated}</span>
         </>
+      ),
+    })
+  }
+  const techGuidance = app ? niceTechGuidanceRefs(app, reg?.nice?.ref) : []
+  if (techGuidance.length > 0) {
+    facts.push({
+      label: 'NICE HealthTech guidance',
+      value: (
+        <ul className="nhsuk-list nhsuk-u-margin-bottom-0">
+          {techGuidance.map((g) => (
+            <li key={g.ref}>
+              {g.url ? (
+                <a href={g.url} target="_blank" rel="noopener noreferrer" className="nhsuk-link" style={linkStyle}>
+                  {g.ref}
+                </a>
+              ) : (
+                g.ref
+              )}
+              {g.date ? <span className="block">{g.date}</span> : null}
+              {g.note ? <span className="block">{g.note}</span> : null}
+            </li>
+          ))}
+        </ul>
       ),
     })
   }
@@ -65,13 +90,16 @@ export function buildRegulatoryFacts(narrative: ProductNarrative): RegFact[] {
 /** Three-column definition list of regulatory facts. Renders nothing when there are none. */
 export default function PdpRegulatoryPosition({
   narrative,
+  app,
   heading = 'Regulatory position',
 }: {
   narrative: ProductNarrative
+  /** Product record — when passed, HTG / MTG guidance held is listed too. */
+  app?: App
   /** Optional heading above the list; pass null to omit. */
   heading?: string | null
 }) {
-  const facts = buildRegulatoryFacts(narrative)
+  const facts = buildRegulatoryFacts(narrative, app)
   if (facts.length === 0) return null
   return (
     <div>

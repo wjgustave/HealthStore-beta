@@ -4,8 +4,6 @@ import { PdpSection } from '@/components/PdpSection'
 import { pdpSectionTitle } from '@/lib/pdpSections'
 import { deriveAssuranceDomains } from '@/lib/content/assuranceDomains'
 import { isMarketPreview } from '@/lib/marketPreview'
-import { splitPdpEvidence } from '@/lib/pdpEvidence'
-import PdpClinicalPublications from '@/components/product/PdpClinicalPublications'
 import PdpRegulatoryPosition from '@/components/product/PdpRegulatoryPosition'
 
 /**
@@ -39,23 +37,11 @@ export default function PdpAssurancePassport({
       ? narrative.assurance_domains
       : deriveAssuranceDomains(app)
 
-  // Evidence half of the combined section (matt_demo "Assurance and evidence"):
-  // peer-reviewed / study-grade publications plus NICE guidance, migrated out of
-  // the Clinical evidence tab for curated-narrative products.
-  const { publications, niceEvidence } = splitPdpEvidence(app, {
-    showNarrativeSpine: true,
-    hasNhsExperience: false,
-  })
-  const niceRefs: any[] = (app as any).nice_guidance_refs ?? []
-  const hasEvidence = publications.length > 0 || niceEvidence.length > 0 || niceRefs.length > 0
+  if (domains.length === 0 && !narrative.regulatory_position) return null
 
-  if (domains.length === 0 && !hasEvidence) return null
-
-  // Commercial readiness is no longer part of the assurance pack (pending commercial team
-  // review) — guard against legacy data that still carries it.
-  const INTEROP_DOMAIN = 'Interoperability'
-  const packDomains = domains.filter((d) => d.domain !== INTEROP_DOMAIN && !/commercial/i.test(d.domain))
-  const interopDomain = domains.find((d) => d.domain === INTEROP_DOMAIN)
+  // Interoperability lives on the Implementation page. Commercial readiness is no longer
+  // part of the assurance pack (pending commercial team review) — guard against legacy data.
+  const packDomains = domains.filter((d) => d.domain !== 'Interoperability' && !/commercial/i.test(d.domain))
 
   const material = packDomains.filter((d) => d.status === 'incomplete' || d.status === 'expired')
   const speedNote = narrative.regulatory_position?.assurance_speed_note
@@ -103,7 +89,7 @@ export default function PdpAssurancePassport({
       )}
 
       {/* R4-2 B: dedicated regulatory-position card */}
-      <PdpRegulatoryPosition narrative={narrative} />
+      <PdpRegulatoryPosition narrative={narrative} app={app} />
 
       {/* R3-2 D: NHS task list for domain status (replaces compact chips) */}
       {packDomains.length > 0 && (
@@ -150,59 +136,6 @@ export default function PdpAssurancePassport({
       </>
       )}
 
-      {interopDomain && (
-        <div
-          className="rounded-lg p-4 mt-4"
-          style={{ background: '#E6F0FB', border: '1px solid var(--border)' }}
-        >
-          <div className="hs-font-bold hs-text-label mb-1" style={{ color: 'var(--text-primary)' }}>
-            {interopDomain.domain}
-          </div>
-          <p className="nhsuk-body-m nhsuk-u-margin-bottom-0">
-            {interopDomain.summary}
-          </p>
-        </div>
-      )}
-
-      {/* Evidence half — "Clinical publications and evaluations" (matt_demo port). */}
-      <PdpClinicalPublications publications={publications} />
-
-      {/* Evidence half — NICE guidance (moved from the Clinical evidence tab). */}
-      {(niceRefs.length > 0 || niceEvidence.length > 0) && (
-        <div>
-          <h3 className="nhsuk-heading-s hs-pdp-subheading">
-            NICE guidance
-          </h3>
-          <div className="space-y-2">
-            {niceRefs.map((r: any) => (
-              <p key={r.ref} className="nhsuk-body-m nhsuk-u-margin-bottom-2">
-                <a href={r.url}>
-                  {r.ref}
-                </a>
-                {[r.type, r.date, r.note].filter(Boolean).length > 0 ? (
-                  <>
-                    {' — '}
-                    {[r.type, r.date, r.note].filter(Boolean).join(', ')}
-                  </>
-                ) : null}
-              </p>
-            ))}
-            {niceEvidence.map((s: any, i: number) => (
-              <p key={s.id ?? i} className="nhsuk-body-m nhsuk-u-margin-bottom-2">
-                {s.url_full_text ? (
-                  <a href={s.url_full_text}>
-                    {s.ref}
-                  </a>
-                ) : (
-                  s.ref
-                )}
-                {s.key_results ? <> — {s.key_results}</> : null}
-                {s.study_limitation ? <> Note: {s.study_limitation}</> : null}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
     </PdpSection>
   )
 }

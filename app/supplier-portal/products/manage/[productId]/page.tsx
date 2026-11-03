@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { PortalBreadcrumb } from '@/components/supplier-portal/PortalBreadcrumb'
-import ProductDocumentsView from '@/components/supplier-portal/ProductDocumentsView'
+import ManagedProductView from '@/components/supplier-portal/ManagedProductView'
 import { MANAGED_PRODUCTS, PORTAL_PATHS, PORTAL_SERVICE_NAME, findManagedProduct } from '@/lib/supplierPortal'
 import { productDefaults } from '@/lib/supplierPortalContent'
 
@@ -12,10 +12,10 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Params }) {
   const product = findManagedProduct((await params).productId)
-  return { title: `${product ? `${product.name} — ` : ''}Documents and content — ${PORTAL_SERVICE_NAME}` }
+  return { title: `${product ? `${product.name} — ` : ''}Product information — ${PORTAL_SERVICE_NAME}` }
 }
 
-export default async function ProductDocumentsPage({ params }: { params: Params }) {
+export default async function ManagedProductPage({ params }: { params: Params }) {
   const product = findManagedProduct((await params).productId)
   if (!product) notFound()
   return (
@@ -29,7 +29,7 @@ export default async function ProductDocumentsPage({ params }: { params: Params 
       />
       <div className="nhsuk-grid-row">
         <div className="nhsuk-grid-column-two-thirds">
-          <ProductDocumentsView productId={product.id} defaults={productDefaults(product)} />
+          <ManagedProductView productId={product.id} defaults={productDefaults(product)} />
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { PortalStatusTag } from '@/components/supplier-portal/PortalStatusTag'
-import { SECTIONS, checkAnswersPath, taskHref } from '@/lib/supplierOnboarding'
+import { SECTIONS, checkAnswersPath, sectionHeading, taskHref, taskListLabel } from '@/lib/supplierOnboarding'
 import { useOnboardingProgress } from './useOnboardingProgress'
 
 /**
@@ -32,7 +32,7 @@ export default function SupplierOnboardingTaskList({ formId }: { formId: string 
       {SECTIONS.map((section, sectionIndex) => (
         <section key={section.id} aria-labelledby={`${section.id}-heading`}>
           <h2 id={`${section.id}-heading`} className="nhsuk-heading-m">
-            {sectionIndex + 1}. {section.title}
+            {sectionHeading(section)}
           </h2>
           <p className="nhsuk-body-m nhsuk-u-secondary-text-color">{section.description}</p>
           <ul className="nhsuk-task-list">
@@ -47,7 +47,7 @@ export default function SupplierOnboardingTaskList({ formId }: { formId: string 
                       href={taskHref(formId, task)}
                       aria-describedby={statusId}
                     >
-                      {task.title}
+                      {taskListLabel(task)}
                     </Link>
                   </div>
                   {complete ? (

@@ -4,7 +4,7 @@ import type { ProductNarrative } from '@/lib/content/productModel'
 import { getDeploymentRegister, summarizeDeployments } from '@/lib/deploymentRegister'
 import { pdpSectionPath } from '@/lib/pdpPageModel'
 import type { PdpSectionLink } from '@/lib/pdpOnThisPage'
-import { pdpSectionTitle, type PdpSectionId } from '@/lib/pdpSections'
+import type { PdpPageId } from '@/lib/pdpSections'
 import { PdpShareRegion } from '@/components/PdpSharePrintContext'
 import ActionLink from '@/components/ActionLink'
 import PdpRegulatoryPosition from '@/components/product/PdpRegulatoryPosition'
@@ -26,8 +26,8 @@ function Block({
   children,
 }: {
   slug: string
-  sectionId: PdpSectionId
-  /** Side-nav label of the section page the action link points at. */
+  sectionId: PdpPageId
+  /** Side-nav label of the page the action link points at. */
   sectionLabel: string
   title: string
   children: ReactNode
@@ -79,7 +79,7 @@ export default function PdpOverviewSummary({
 }) {
   const name: string = app.app_name
   const labels = new Map(sections.map((s) => [s.id, s.label]))
-  const block = (sectionId: PdpSectionId, title: string, children: ReactNode) => {
+  const block = (sectionId: PdpPageId, title: string, children: ReactNode) => {
     const sectionLabel = labels.get(sectionId)
     if (!sectionLabel) return null
     return (
@@ -116,7 +116,7 @@ export default function PdpOverviewSummary({
         )}
 
       {block(
-        'local-impact',
+        'local-impact-and-value',
         `${name}'s local impact`,
         <>
           <div className="nhsuk-inset-text" style={{ marginTop: 0, marginBottom: 24 }}>
@@ -152,12 +152,12 @@ export default function PdpOverviewSummary({
         )}
 
       {hasRegulatory &&
-        block('assurance', pdpSectionTitle('assurance'), <PdpRegulatoryPosition narrative={narrative} heading={null} />)}
+        block('assurance', 'Assurance', <PdpRegulatoryPosition narrative={narrative} heading={null} />)}
 
       {impl?.workforce &&
         block(
           'implementation',
-          pdpSectionTitle('implementation'),
+          'Making it work at your site',
           <p className="nhsuk-body-m" style={{ margin: 0 }}>
             {impl.workforce}
           </p>,
@@ -165,8 +165,8 @@ export default function PdpOverviewSummary({
 
       {deployments.length > 0 &&
         block(
-          'nhs-experience',
-          pdpSectionTitle('nhs-experience'),
+          'peer-and-patient-experience',
+          'NHS experience',
           <p className="nhsuk-body-m" style={{ margin: 0 }}>
             {name} has {deploymentSummary.total} recorded NHS deployment{deploymentSummary.total === 1 ? '' : 's'}
             {deploymentSummary.liveCount > 0 ? ` (${deploymentSummary.liveCount} live` : ''}
@@ -180,8 +180,8 @@ export default function PdpOverviewSummary({
 
       {commercial &&
         block(
-          'how-to-buy',
-          pdpSectionTitle('how-to-buy', { appName: name }),
+          'procurement',
+          'How to commission and procure',
           <ul className="nhsuk-list nhsuk-list--bullet" style={{ margin: 0 }}>
             {[
               { label: 'Recommended route', value: commercial.route_status },

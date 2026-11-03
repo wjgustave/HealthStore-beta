@@ -19,12 +19,10 @@ import {
   type CompanyReturnTo,
 } from '@/lib/supplierCompany'
 import {
-  isAnswered,
-  isQuestionAnswered,
   isQuestionVisible,
-  otherDetailsKey,
+  questionError,
+  questionErrorFieldId,
   questionKeys,
-  selectedValues,
   type OnboardingQuestion,
   type TaskAnswers,
 } from '@/lib/supplierOnboarding'
@@ -128,9 +126,9 @@ function QuestionForm({
   }
 
   function validate(): boolean {
-    if (question.optional || isQuestionAnswered(question, merged)) return true
-    setError(missingMessage(question, merged))
-    return false
+    const message = questionError(question, merged)
+    setError(message)
+    return !message
   }
 
   function saveAndContinue() {
@@ -154,17 +152,7 @@ function QuestionForm({
     patch({ ...sample, ...fromCompany })
   }
 
-  const errorField =
-    question.type === 'radios' || question.type === 'checkboxes'
-      ? `${question.id}-${question.options[0]?.value}`
-      : question.type === 'upload'
-        ? `${question.id}-file`
-        : question.type === 'date'
-          ? `${question.id}-day`
-          : question.type === 'fields'
-            ? `${question.id}-${question.fields[0]?.key}`
-            : question.id
-  const errors = error ? [{ field: errorField, message: error }] : []
+  const errors = error ? [{ field: questionErrorFieldId(question, merged), message: error }] : []
 
   return (
     <div className="nhsuk-width-container nhsuk-main-wrapper">
@@ -172,7 +160,6 @@ function QuestionForm({
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={backHref} />
           <ErrorSummary errors={errors} />
-          <span className="nhsuk-caption-l">{section.title}</span>
 
           <form
             noValidate
@@ -182,7 +169,7 @@ function QuestionForm({
               else saveAndContinue()
             }}
           >
-            <QuestionField question={question} draft={draft} patch={patch} commit={commit} />
+            <QuestionField question={question} draft={draft} patch={patch} commit={commit} error={error} caption={section.title} />
 
             <p className="nhsuk-body-m nhsuk-u-margin-top-4 nhsuk-u-margin-bottom-0">
               <button
@@ -217,23 +204,3 @@ function QuestionForm({
   )
 }
 
-function missingMessage(question: OnboardingQuestion, answers: TaskAnswers): string {
-  switch (question.type) {
-    case 'radios':
-    case 'checkboxes':
-      if (selectedValues(question, answers).includes('other') && !isAnswered(answers[otherDetailsKey(question.id)])) {
-        return 'Give details'
-      }
-      return 'Select an answer'
-    case 'upload':
-      return question.noReference ? 'Select a file' : 'Select a file and enter a reference name'
-    case 'fields':
-      return 'Complete the required fields'
-    case 'multi-upload':
-      return 'Add at least one document and mark the question as complete'
-    case 'date':
-      return 'Enter a valid date'
-    default:
-      return 'Enter an answer'
-  }
-}

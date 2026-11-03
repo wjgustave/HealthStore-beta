@@ -17,6 +17,8 @@
  * docs/SUPPLIER_PORTAL_FLOWS.md ("Product onboarding question routes").
  */
 
+import { TEXTAREA_CHARACTER_LIMIT, characterLimitMessage, countCharacters } from '@/lib/characterCount'
+import { canonicalCountryName } from '@/lib/countries'
 import { PORTAL_PATHS } from '@/lib/supplierPortal'
 
 export const SERVICE_NAME = 'HealthStore Onboarding'
@@ -26,6 +28,11 @@ export const STORAGE_KEY_PREFIX = 'hs-supplier-portal:onboarding:'
 
 export function storageKey(formId: string): string {
   return `${STORAGE_KEY_PREFIX}${formId}`
+}
+
+/** Page caption for a task's pages. Assessed standards name the standard being answered. */
+export function taskCaption(section: Pick<OnboardingSection, 'id' | 'title'>, task: Pick<OnboardingTask, 'title'>): string {
+  return section.id === 'technical-questions' ? `Assessed standard: ${task.title}` : section.title
 }
 
 /** Task list page for one product's form. */
@@ -145,18 +152,30 @@ export type OnboardingQuestion =
    * `${id}${UPLOAD_REFERENCE_SUFFIX}`. Set `noReference` to ask for the file only.
    * Set `multiple` to accept several files at once or one after another; the
    * list is stored JSON-encoded under `id` (see `UploadedDocument`).
-   * `declineLabel`, when set, shows a link under the control that records
-   * `NOT_PROVIDED_ANSWER` and continues to the next question.
+   * When a supplier may not have the document, ask first with a radios
+   * question using `CAN_PROVIDE` and show the upload only on Yes (`canProvide`).
    */
   | (QuestionBase & {
       type: 'upload'
       documents?: string[]
       noReference?: boolean
       multiple?: boolean
-      declineLabel?: string
       /** Short note shown under the file list. */
       footnote?: string
     })
+  /**
+   * One or more countries, each an autocomplete from the GOV.UK country register
+   * (countries only, UK excluded), with "Add another country" (Scottish
+   * Government "Add more fields" pattern). Stored JSON-encoded under `id` as a
+   * list of names — see `parseCountries`.
+   */
+  | (QuestionBase & { type: 'countries' })
+  /**
+   * A text area for each country listed in the `countriesFrom` question (same
+   * task). Stored JSON-encoded under `id` as `{ [country]: text }` — see
+   * `parseCountryDetails`.
+   */
+  | (QuestionBase & { type: 'country-details'; countriesFrom: string })
   /**
    * Several documents, added one at a time (file + reference name, then
    * "Upload file"), listed with a Remove action. Adapted from the MoJ Multi file
@@ -180,7 +199,7 @@ export type OnboardingQuestion =
 
 export const UPLOAD_REFERENCE_SUFFIX = '__reference'
 
-/** Stored when a supplier uses an upload's "can't provide this now" link. */
+/** Shown wherever an expected answer or document was not given. */
 export const NOT_PROVIDED_ANSWER = 'Not provided'
 export const MULTI_UPLOAD_CONFIRMED_SUFFIX = '__confirmed'
 export const CONFIRMED_VALUE = 'yes'
@@ -244,14 +263,75 @@ export function serializeUploadedDocuments(docs: UploadedDocument[]): string {
   return docs.length === 0 ? '' : JSON.stringify(docs)
 }
 
+/** Country names for a `countries` question, including empty rows still being filled in. */
+export function parseCountries(value: string | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map((c) => (typeof c === 'string' ? c : '')) : []
+  } catch {
+    return []
+  }
+}
+
+export function serializeCountries(countries: string[]): string {
+  return countries.length === 0 || countries.every((c) => !c.trim()) ? '' : JSON.stringify(countries)
+}
+
+/** Text per country for a `country-details` question. */
+export function parseCountryDetails(value: string | undefined): Record<string, string> {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function serializeCountryDetails(details: Record<string, string>): string {
+  return Object.values(details).some((v) => v.trim()) ? JSON.stringify(details) : ''
+}
+
+/** The filled-in countries a `country-details` question asks about, in the order they were added. */
+export function countriesFor(question: OnboardingQuestion, answers: TaskAnswers): string[] {
+  if (question.type !== 'country-details') return []
+  return [...new Set(parseCountries(answers[question.countriesFrom]).map((c) => c.trim()).filter(Boolean))]
+}
+
 export type OnboardingTask = {
   /** Stable identifier used as the completion-state key. */
   id: string
   /** URL segment under /supplier-onboard. */
   slug: string
+  /** Section code from the DTAC form (A, B, C1–C4, D). Absent for non-DTAC tasks such as company information. */
+  code?: string
   title: string
   /** Question pages for this task. Empty until the content is authored. */
   questions: OnboardingQuestion[]
+}
+
+/** Task name with its DTAC code in front, for task lists. */
+export function taskTitleWithCode(task: Pick<OnboardingTask, 'code' | 'title'>): string {
+  return task.code ? `${task.code} ${task.title}` : task.title
+}
+
+/**
+ * Section heading for the onboarding form. The DTAC letter (A, B, C, D) replaces
+ * a 1–4 number. A section of several tasks (C1–C4) uses the letter they share.
+ */
+export function sectionHeading(section: OnboardingSection): string {
+  const codes = section.tasks.map((t) => t.code).filter((code): code is string => !!code)
+  const shared = codes.length > 0 && codes.every((code) => code[0] === codes[0][0]) ? codes[0][0] : undefined
+  return shared ? `${shared}. ${section.title}` : section.title
+}
+
+/**
+ * Onboarding task-list link. A single letter heads the section, so the link
+ * shows the title alone. Longer codes (C1–C4) follow the title in brackets.
+ */
+export function taskListLabel(task: Pick<OnboardingTask, 'code' | 'title'>): string {
+  return task.code && task.code.length > 1 ? `${task.title} (${task.code})` : task.title
 }
 
 export type OnboardingSection = {
@@ -264,7 +344,7 @@ export type OnboardingSection = {
 
 /** Regulatory notice shown in the blue panel under the task list introduction. */
 export const ONBOARDING_NOTICE =
-  'Use this form to onboard your Digital Therapeutic (DTx) into the NHS HealthStore. The HealthStore is an information and signposting platform only; NHS England is not a distributor or part of the medical device supply chain. Under UK MDR, manufacturers are solely liable for all clinical, efficacy and regulatory claims. Answers must be objective, evidence-based and aligned with NHS clinical guidelines.'
+  'Use this form to onboard your digital therapeutic (DTx) into the NHS HealthStore. The NHS HealthStore is an information and signposting platform only; NHS England is not a distributor or part of the medical device supply chain. Under the UK Medical Devices Regulation (MDR) 2002, manufacturers are solely liable for all clinical, efficacy and regulatory claims. Answers you provide to questions must be objective, evidence-based and aligned with NHS clinical guidelines.'
 
 /** Declaration shown above "Confirm and submit" on the Check your answers page. */
 export const SUBMISSION_DECLARATION =
@@ -278,8 +358,8 @@ export function confirmationPath(formId: string): string {
   return `${formBasePath(formId)}/confirmation`
 }
 
-function task(slug: string, title: string, questions: OnboardingQuestion[] = []): OnboardingTask {
-  return { id: slug, slug, title, questions }
+function task(slug: string, code: string, title: string, questions: OnboardingQuestion[] = []): OnboardingTask {
+  return { id: slug, slug, code, title, questions }
 }
 
 /* ----------------------------- option sets ------------------------------ */
@@ -307,10 +387,20 @@ const CONFIRMED_UNABLE: QuestionOption[] = [
 
 const UPLOAD_HINT = 'Label the document with your company name, the question number and the date of submission.'
 
+/** "Can you provide…?" before an upload: Yes opens the upload page, No skips it. */
+const CAN_PROVIDE: QuestionOption[] = [
+  { value: 'yes', label: 'Yes', hint: 'You can upload this on the next page' },
+  { value: 'no', label: "No, I can't provide this right now" },
+]
+
+/** Shown when the `CAN_PROVIDE` question before an upload is answered Yes. */
+function canProvide(gateId: string): AnswerCondition {
+  return { questionId: gateId, in: ['yes'] }
+}
+
 /**
- * C1.2.2 onwards. Standalone devices skip the rest of clinical safety and go
- * to C2. Everyone else answers C1.2: Yes continues here, No stops after C1.2.1
- * and then goes to C2.
+ * C1.2.2 onwards. C1.2 is asked of everyone: Yes continues here, No stops
+ * after C1.2.1 and then goes to C2.
  */
 const CLINICAL_RISK_ROUTE: AnswerCondition = { questionId: 'c1-2-direct-care', in: ['yes'] }
 
@@ -347,7 +437,7 @@ const CLINICAL_SAFETY_INTERSTITIAL_LINKS = [
 /** Intro copy shown before any technical security question. */
 const TECHNICAL_SECURITY_INTERSTITIAL_HINT = [
   'Dependent on the DHT being procured, it is recommended that appropriate contractual arrangements are put in place for problem identification and resolution, incident management and response planning and disaster recovery.',
-  'Please provide details relating to the specific technology product under assessment, and not generally for your organisation.',
+  'In this section, you will be asked to provide details about the specific technology product under assessment, and not generally for your organisation.',
 ].join('\n\n')
 
 /** Intro copy shown before any interoperability question. */
@@ -382,11 +472,11 @@ const CRM_CONFIRMED: AnswerCondition = { questionId: 'c1-2-2-crm-activities', in
 /** C2.2.1 onwards. No on C2.2 leaves data protection and continues at C3. */
 const PROCESSES_PERSONAL_DATA: AnswerCondition = { questionId: 'c2-2-personal-data', in: ['yes'] }
 
-/** C1.2 is skipped when the product is classified as a standalone device. */
+/** C1.2 follows C1.1.1 No, or either C1.1.2 classification. */
 const ASKS_DIRECT_CARE: AnswerCondition = {
   anyOf: [
     { questionId: 'c1-1-1-samd', in: ['no'] },
-    { questionId: 'c1-1-2-standalone', in: ['part-of-it-system'] },
+    { questionId: 'c1-1-2-standalone', in: ['standalone-device', 'part-of-it-system'] },
   ],
 }
 
@@ -398,12 +488,13 @@ export const SECTIONS: OnboardingSection[] = [
     title: 'Product details',
     description: 'Tell us which product, and which version of it, this form is for.',
     tasks: [
-      task('product-details', 'Product details', [
+      task('product-details', 'A', 'Product details', [
         {
           id: 'a2-product-name',
           code: 'A2',
           type: 'text',
           label: 'What is the name of your product?',
+          hint: 'Each listed product has its own onboarding form. Answers you provide to questions within the form will be saved until you choose to submit them.',
         },
         {
           id: 'a3-product-version',
@@ -433,7 +524,7 @@ export const SECTIONS: OnboardingSection[] = [
     description:
       'Set out the clinical, economic or behavioural benefits of your product to support the review of your technology.',
     tasks: [
-      task('value-proposition', 'Value proposition', [
+      task('value-proposition', 'B', 'Value proposition', [
         {
           id: 'b1-intended-use',
           code: 'B1',
@@ -467,8 +558,8 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'B4',
           type: 'radios',
           label: 'Can you provide information about the data flow between the product and the health IT system?',
-          hint: 'Existing documentation showing data flows and/or user journeys such as deployment diagrams, product installation or user guides etc.',
-          options: YES_NO,
+          hint: 'Information you provide might include existing documentation showing data flows, user journey such as deployment diagrams, product installation or user guides.',
+          options: CAN_PROVIDE,
           details: [
             {
               summary: 'How to make a user journey map',
@@ -491,11 +582,7 @@ export const SECTIONS: OnboardingSection[] = [
           multiple: true,
           noReference: true,
           label: 'Upload your journey maps and data flows',
-          documents: [
-            'You can upload multiple at a time, or one after another',
-            'Maximum single file size is XMB',
-            'Upload up to XXMB of files',
-          ],
+          hint: 'You can upload multiple files at a time or one after the other. The maximum single file size you can upload is XMB, and you can upload up to XXMB of files in total.',
           showIf: { questionId: 'b4-data-flow', in: ['yes'] },
         },
       ]),
@@ -507,7 +594,7 @@ export const SECTIONS: OnboardingSection[] = [
     description:
       'Suppliers must provide responses and documentation relating to the specific version of the product that is subject to assessment.',
     tasks: [
-      task('clinical-safety', 'Clinical safety (DCB0129)', [
+      task('clinical-safety', 'C1', 'Clinical safety', [
         {
           id: 'c1-clinical-safety-intro',
           type: 'info',
@@ -521,9 +608,9 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C1.1.1',
           type: 'radios',
           label: 'Does your product qualify as software or AI as a medical device under UK MDR 2002?',
-          hint: 'If yes, you will need to upload a completed Pre-acquisition questionnaire (PAQ) form.',
+          hint: "If you select 'Yes', you will need to upload a completed Pre-acquisition questionnaire (PAQ).",
           hintLink: {
-            text: 'Pre-acquisition questionnaire (PAQ) form',
+            text: 'Pre-acquisition questionnaire (PAQ)',
             href: 'https://www.england.nhs.uk/publication/pre-acquisition-questionnaire/',
           },
           options: YES_NO,
@@ -534,9 +621,9 @@ export const SECTIONS: OnboardingSection[] = [
           type: 'upload',
           noReference: true,
           label: 'Upload your Pre-acquisition questionnaire (PAQ)',
-          hint: 'You must upload a PAQ form.',
+          hint: 'You must upload a PAQ.',
           hintLink: {
-            text: 'PAQ form',
+            text: 'PAQ',
             href: 'https://www.england.nhs.uk/publication/pre-acquisition-questionnaire/',
           },
           showIf: { questionId: 'c1-1-1-samd', in: ['yes'] },
@@ -548,7 +635,7 @@ export const SECTIONS: OnboardingSection[] = [
           pageTitle: 'Product classification',
           label: 'What is your product classified as?',
           hint:
-            'Read guidance on applicability of the DCB0129 and DCB0160 clinical safety standards.\n\nThis question is intended to determine whether your product is a standalone medical device, or if it forms part of or integrates with a Health IT System that your organisation places on market. For example; an EPR incorporating a SaMD or AIaMD module.\n\nIf it forms part of or integrates with a Health IT System that your organisation places on the market, the product as a whole may have non-medical intended-uses not covered by medical device regulations. However, it may still pose clinical risks and as such is subject to the DCB0129 standard.',
+            'Read guidance on applicability of the DCB0129 and DCB0160 clinical safety standards.\n\nThis question is intended to determine whether your product is a standalone medical device, or if it forms part of or integrates with a Health IT System that your organisation places on the market. For example; an EPR incorporating a SaMD or AIaMD module.\n\nIf it forms part of or integrates with a Health IT System that your organisation places on the market, the product as a whole may have non-medical intended-uses not covered by medical device regulations. However, it may still pose clinical risks and as such is subject to the DCB0129 standard.',
           hintLink: [
             {
               text: 'guidance on applicability',
@@ -570,14 +657,14 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C1.2',
           type: 'radios',
           label: 'Is your product designed to support or manage real-time or direct care?',
-          hint: 'This determines whether your product is either itself or part of a Health IT System subject to DCB0129.',
+          hint: 'Your answer determines whether your product is or is part of a Health IT System that is subject to DCB0129.',
           hintLink: {
             text: 'DCB0129',
             href: 'https://digital.nhs.uk/data-and-information/information-standards/governance/latest-activity/standards-and-collections/dcb0129-clinical-risk-management-its-application-in-the-manufacture-of-health-it-systems/',
           },
           details: [
             {
-              summary: 'The definition of a health IT system',
+              summary: 'The definition of a Health IT System',
               text: 'A Health IT system is defined as a product used to provide electronic information for health and social care purposes, meaning it may influence, support or manage real time or near real time direct care of patients/service users. Further information can be found in guidance on applicability.',
               link: {
                 text: 'guidance on applicability',
@@ -593,7 +680,7 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C1.2.1',
           type: 'textarea',
           label: 'Explain why the product is out of scope of DCB0129',
-          hint: 'This justification should be provided considering the terms as defined in the DCB0129 standard and the guidance on applicability.',
+          hint: 'The explanation you provide should consider the terms as defined in the DCB0129 standard, and the guidance on applicability.',
           hintLink: [
             {
               text: 'DCB0129 standard',
@@ -629,12 +716,11 @@ export const SECTIONS: OnboardingSection[] = [
           showIf: { questionId: 'c1-2-2-crm-activities', in: ['no'] },
         },
         {
-          id: 'c1-2-3-crm-system',
+          id: 'c1-2-3-crm-system-can-provide',
           code: 'C1.2.3',
-          type: 'upload',
-          noReference: true,
-          label: 'Upload your clinical risk management system document',
-          hint: 'DCB0129 sets out the activities that must and should be undertaken for Health IT systems.',
+          type: 'radios',
+          label: 'Can you provide your clinical risk management system document?',
+          hint: 'DCB0129 sets out the activities that must be undertaken for Health IT systems.',
           hintLink: { text: 'DCB0129', href: DCB0129_STANDARD_HREF },
           details: [
             {
@@ -646,16 +732,23 @@ export const SECTIONS: OnboardingSection[] = [
               },
             },
           ],
-          declineLabel: "I can't provide a clinical risk management system right now.",
+          options: CAN_PROVIDE,
           showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED],
         },
         {
-          id: 'c1-2-4-safety-case',
-          code: 'C1.2.4',
+          id: 'c1-2-3-crm-system',
+          code: 'C1.2.3',
           type: 'upload',
           noReference: true,
-          label: 'Upload your Clinical Safety Case Report',
-          hint: 'To pass, the manufacturer is required to submit a Clinical Safety Case Report that is compliant with the requirements set out in DCB0129. This should be commensurate with the scale and clinical functionality of the product and address the clinical risk management activities specified with the standard.',
+          label: 'Upload your clinical risk management system document',
+          showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED, canProvide('c1-2-3-crm-system-can-provide')],
+        },
+        {
+          id: 'c1-2-4-safety-case-can-provide',
+          code: 'C1.2.4',
+          type: 'radios',
+          label: 'Can you provide your Clinical Safety Case Report?',
+          hint: 'To pass, the manufacturer is required to submit a Clinical Safety Case Report that is compliant with the requirements set out in DCB0129. This report should be commensurate with the scale and clinical functionality of the product and address the clinical risk management activities specified with the standard.',
           details: [
             {
               summary: 'I need a template',
@@ -666,17 +759,23 @@ export const SECTIONS: OnboardingSection[] = [
               },
             },
           ],
-          declineLabel: "I can't provide a Clinical Safety Case Report right now.",
+          options: CAN_PROVIDE,
           showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED],
         },
         {
-          id: 'c1-2-4-hazard-log',
+          id: 'c1-2-4-safety-case',
           code: 'C1.2.4',
           type: 'upload',
-          multiple: true,
           noReference: true,
-          label: 'Upload your Hazard Log',
-          hint: 'To pass, the manufacturer is required to submit a Hazard Log that is compliant with the requirements set out in DCB0129. This should be commensurate with the scale and clinical functionality of the product and address the clinical risk management activities specified with the standard.',
+          label: 'Upload your Clinical Safety Case Report',
+          showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED, canProvide('c1-2-4-safety-case-can-provide')],
+        },
+        {
+          id: 'c1-2-4-hazard-log-can-provide',
+          code: 'C1.2.4',
+          type: 'radios',
+          label: 'Can you provide your Hazard Log?',
+          hint: 'To pass, the manufacturer is required to submit a Hazard Log that is compliant with the requirements set out in DCB0129. This report should be commensurate with the scale and clinical functionality of the product and address the clinical risk management activities specified with the standard.',
           details: [
             {
               summary: 'I need a template',
@@ -687,28 +786,37 @@ export const SECTIONS: OnboardingSection[] = [
               },
             },
           ],
-          documents: [
-            'You can upload multiple at a time, or one after another',
-            'Maximum single file size is XMB',
-            'Upload up to XXMB of files',
-          ],
-          footnote: 'If needed, your Hazard Log can be appended later.',
-          declineLabel: "I can't provide a Hazard Log right now.",
+          options: CAN_PROVIDE,
           showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED],
+        },
+        {
+          id: 'c1-2-4-hazard-log',
+          code: 'C1.2.4',
+          type: 'upload',
+          multiple: true,
+          noReference: true,
+          label: 'Upload your Hazard Log',
+          hint: 'You can upload multiple files at a time or one after the other. The maximum single file size you can upload is XMB, and you can upload up to XXMB of files in total.',
+          footnote: 'If needed, your Hazard Log can be appended later.',
+          showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED, canProvide('c1-2-4-hazard-log-can-provide')],
         },
         {
           id: 'c1-2-5-cso',
           code: 'C1.2.5',
           type: 'fields',
-          pageTitle: 'Your Clinical Safety Officer (CSO)',
-          label: 'Provide your CSO details',
-          hint: [
-            'The CSO must:',
-            '● Be a suitably qualified and experienced clinician',
-            '● Hold a current registration with an appropriate professional body relevant to their training and experience',
-            '● Be knowledgeable in risk management and its application to clinical domains',
-            '● Have sufficient responsibility to be able to ensure processes defined in DCB0129 are followed',
-          ].join('\n\n'),
+          label: 'Provide details of your Clinical Safety Officer (CSO)',
+          details: [
+            {
+              summary: "Check your CSO's suitability",
+              text: [
+                'The CSO must:',
+                '● Be a suitably qualified and experienced clinician',
+                '● Hold a current registration with an appropriate professional body relevant to their training and experience',
+                '● Be knowledgeable in risk management and its application to clinical domains',
+                '● Have sufficient responsibility to be able to ensure processes defined in DCB0129 are followed',
+              ].join('\n\n'),
+            },
+          ],
           fields: [
             { key: 'full-name', label: 'Full name', autoComplete: 'name', width: 'nhsuk-u-width-two-thirds' },
             { key: 'profession', label: 'Profession', width: 'nhsuk-u-width-two-thirds' },
@@ -717,7 +825,7 @@ export const SECTIONS: OnboardingSection[] = [
           showIf: [CLINICAL_RISK_ROUTE, CRM_CONFIRMED],
         },
       ]),
-      task('data-protection', 'Data protection (UK GDPR)', [
+      task('data-protection', 'C2', 'Data protection', [
         {
           id: 'c2-data-protection-intro',
           type: 'info',
@@ -731,7 +839,7 @@ export const SECTIONS: OnboardingSection[] = [
           type: 'radios',
           pageTitle: 'Compliance with the annual Data Security and Protection Toolkit (DSPT) assessment',
           label: 'Are you compliant with the annual DSPT assessment?',
-          hint: 'If your organisation has or will have direct or remote access to any patient data or NHS systems, it will need to be compliant with the annual Data Security and Protection Toolkit (DSPT) assessment for the current year if new to market, or previous year if you have yet to provide a return for the current year.',
+          hint: 'If your organisation has or will have direct or remote access to any patient data or NHS systems, it must be compliant with the annual Data Security and Protection Toolkit (DSPT) assessment for the current year if new to market, or previous year if you have yet to provide a return for the current year.',
           fieldHint: 'You must have met or exceeded status.',
           details: [
             {
@@ -745,7 +853,7 @@ export const SECTIONS: OnboardingSection[] = [
             { value: 'no', label: 'No' },
             {
               value: 'no-patient-data',
-              label: 'There is no access to patient data or national NHS systems',
+              label: 'Not applicable',
             },
           ],
         },
@@ -766,8 +874,8 @@ export const SECTIONS: OnboardingSection[] = [
           label: 'Does the product process personal data or data about deceased individuals?',
           hint: [
             'This includes any personal data processed by a sub processor.',
-            'If your organisation has no role in operating or hosting the product or service (e.g. products designed to be hosted on the care providers infrastructure) and with no means of accessing information contained within it (including remote access for support and maintenance purposes) then you should answer no.',
-            'General Data Protection Regulation (UK GDPR) applies to the processing of personal data. While it does not apply to deceased individuals, there are additional legal considerations under the common law duty of confidentiality for health and care data, including for data of deceased individuals.',
+            'If your organisation has no role in operating or hosting the product or service (for example, products designed to be hosted on the care providers infrastructure) and with no means of accessing information contained within it (including remote access for support and maintenance purposes) select \'No\'.',
+            'The UK General Data Protection Regulation (UK GDPR) applies to the processing of personal data. While it does not apply to deceased individuals, there are additional legal considerations under the common law duty of confidentiality for health and care data, including for data of deceased individuals.',
           ].join('\n\n'),
           hintLink: {
             // Trailing full stop keeps this distinct from "personal data" in the first paragraph.
@@ -777,36 +885,40 @@ export const SECTIONS: OnboardingSection[] = [
           options: YES_NO,
         },
         {
+          id: 'c2-2-1-ico-can-provide',
+          code: 'C2.2.1',
+          type: 'radios',
+          label: "Can you provide evidence of current Information Commissioner's Office (ICO) registration?",
+          hint: 'The Data Protection Act 2018 requires all organisations processing personal data to register with the ICO.',
+          options: CAN_PROVIDE,
+          showIf: PROCESSES_PERSONAL_DATA,
+        },
+        {
           id: 'c2-2-1-ico',
           code: 'C2.2.1',
           type: 'upload',
           noReference: true,
-          label: "Upload evidence of current Information Commissioner's Office (ICO) registration",
-          hint: [
-            'The Data Protection Act 2018 requires all organisations processing personal data to register with the ICO.',
-            'Your evidence can be a screenshot of the registration number that includes details of the expiration date.',
-          ].join('\n\n'),
-          declineLabel: "I can't provide evidence of current ICO registration right now.",
-          showIf: PROCESSES_PERSONAL_DATA,
+          label: "Upload evidence of your current Information Commissioner's Office (ICO) registration document",
+          hint: 'Your evidence can be a screenshot of the registration number that includes details of the expiration date.',
+          showIf: [PROCESSES_PERSONAL_DATA, canProvide('c2-2-1-ico-can-provide')],
         },
         {
           id: 'c2-2-1-ico-expiry',
           code: 'C2.2.1',
           type: 'date',
           mustBeFuture: true,
-          label: "Information Commissioner's Office registration expiry date",
+          label: "What is the expiry date on your Information Commissioner's Office (ICO) Registration document?",
           hint: 'For example, 15 3 2028.',
-          showIf: [PROCESSES_PERSONAL_DATA, { questionId: 'c2-2-1-ico', notIn: [NOT_PROVIDED_ANSWER] }],
+          showIf: [PROCESSES_PERSONAL_DATA, canProvide('c2-2-1-ico-can-provide')],
         },
         {
-          id: 'c2-2-2-dpia',
+          id: 'c2-2-2-dpia-can-provide',
           code: 'C2.2.2',
-          type: 'upload',
-          noReference: true,
-          label: 'Upload the Data Protection Impact Assessment (DPIA) for your product',
+          type: 'radios',
+          label: 'Can you provide the Data Protection Impact Assessment (DPIA) for your product?',
           hint: [
-            'It is a legal requirement under UK GDPR to complete a DPIA in advance of any processing likely to result in high risk to individuals.',
-            'NHS England has developed a DPIA template and guidance.',
+            'It is a legal requirement under the UK General Data Protection Regulation (UK GDPR) to complete a DPIA in advance of any processing likely to present high-risk to individuals.',
+            'NHS England has developed a DPIA template and guidance to help you.',
             'The nature of health and care data means the impact on individuals is significant so most digital health technologies will require a DPIA.',
           ].join('\n\n'),
           hintLink: [
@@ -815,7 +927,7 @@ export const SECTIONS: OnboardingSection[] = [
               href: 'https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/accountability-and-governance/data-protection-impact-assessments-dpias/',
             },
             {
-              text: 'high risk',
+              text: 'high-risk',
               href: 'https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/accountability-and-governance/data-protection-impact-assessments-dpias/when-do-we-need-to-do-a-dpia/',
             },
             {
@@ -823,18 +935,26 @@ export const SECTIONS: OnboardingSection[] = [
               href: 'https://digital.nhs.uk/data-and-information/information-governance/templates/universal-ig-templates',
             },
           ],
-          declineLabel: "I can't provide a Data Protection Impact Assessment (DPIA).",
+          options: CAN_PROVIDE,
           showIf: PROCESSES_PERSONAL_DATA,
+        },
+        {
+          id: 'c2-2-2-dpia',
+          code: 'C2.2.2',
+          type: 'upload',
+          noReference: true,
+          label: 'Upload the Data Protection Impact Assessment (DPIA) for your product',
+          showIf: [PROCESSES_PERSONAL_DATA, canProvide('c2-2-2-dpia-can-provide')],
         },
         {
           id: 'c2-2-3-privacy-notice',
           code: 'C2.2.3',
           type: 'radios',
-          pageTitle: "Provide your product's transparency information.",
+          pageTitle: "Provide your product's transparency information",
           label: 'How will you provide your transparency information?',
           hint: [
-            'This may be published DPIAs or other documentation that explains how the product processes information, or a privacy notice.',
-            'NHS England has developed a template privacy notice and guidance.',
+            'Transparency information may include published DPIAs, other documents that explain how the product processes information, or a Privacy Notice.',
+            'NHS England has developed a template privacy notice and guidance to help you.',
           ].join('\n\n'),
           hintLink: {
             text: 'privacy notice and guidance',
@@ -843,8 +963,7 @@ export const SECTIONS: OnboardingSection[] = [
           options: [
             {
               value: 'link',
-              label: 'A link',
-              hint: 'For example to a privacy notice',
+              label: "I'll provide a link",
               followUp: {
                 label: 'Provide the URL',
                 hint: 'For example, www.productname.com/privacy-notice',
@@ -853,8 +972,7 @@ export const SECTIONS: OnboardingSection[] = [
             },
             {
               value: 'upload',
-              label: 'Upload a document',
-              hint: 'You can upload on the next page',
+              label: "I'll upload a document",
             },
             {
               value: 'not-provided',
@@ -869,12 +987,8 @@ export const SECTIONS: OnboardingSection[] = [
           type: 'upload',
           multiple: true,
           noReference: true,
-          label: 'Upload the transparency documentation',
-          documents: [
-            'You can upload multiple at a time, or one after another',
-            'Maximum single file size is XMB',
-            'Upload up to XXMB of files',
-          ],
+          label: "Upload a document that shows your product's transparency information",
+          hint: 'You can upload multiple files at a time or one after the other. The maximum single file size you can upload is XMB, and you can upload up to XXMB of files in total.',
           showIf: [PROCESSES_PERSONAL_DATA, { questionId: 'c2-2-3-privacy-notice', in: ['upload'] }],
         },
         {
@@ -883,8 +997,8 @@ export const SECTIONS: OnboardingSection[] = [
           type: 'radios',
           pageTitle:
             'Provide product terms and conditions regarding user data, an end user licence agreement (EULA) or equivalent',
-          label: 'How will you provide these terms and conditions?',
-          hint: 'UK GDPR principles set a legal requirement for health and care organisations to only engage in processing that it has assessed as fair.',
+          label: "How will you provide your product's terms and conditions?",
+          hint: 'The UK General Data Protection Regulation (UK GDPR) principles set a legal requirement for health and care organisations to only engage in processing that it has assessed as fair.',
           hintLink: {
             text: 'assessed as fair',
             href: 'https://ico.org.uk/for-organisations/advice-and-services/audits/data-protection-audit-framework/',
@@ -892,7 +1006,7 @@ export const SECTIONS: OnboardingSection[] = [
           options: [
             {
               value: 'link',
-              label: 'A link',
+              label: "I'll provide a link",
               followUp: {
                 label: 'Provide the URL',
                 hint: 'For example, www.productname.com/terms-and-conditions',
@@ -901,7 +1015,7 @@ export const SECTIONS: OnboardingSection[] = [
             },
             {
               value: 'upload',
-              label: 'Upload a document',
+              label: "I'll upload a document",
               hint: 'You can upload on the next page',
             },
             {
@@ -910,7 +1024,8 @@ export const SECTIONS: OnboardingSection[] = [
             },
             {
               value: 'not-applicable',
-              label: 'This is not applicable to your product',
+              label: 'This question is not applicable to your product',
+              dividerBefore: true,
             },
           ],
           showIf: PROCESSES_PERSONAL_DATA,
@@ -922,12 +1037,8 @@ export const SECTIONS: OnboardingSection[] = [
           multiple: true,
           noReference: true,
           label:
-            'Upload documentation for user data and end user licence agreement (EULA) or equivalent',
-          documents: [
-            'You can upload multiple at a time, or one after another',
-            'Maximum single file size is XMB',
-            'Upload up to XXMB of files',
-          ],
+            'Upload documentation for user data, an end user licence agreement (EULA) or equivalent',
+          hint: 'You can upload multiple files at a time or one after the other. The maximum single file size you can upload is XMB, and you can upload up to XXMB of files in total.',
           showIf: [PROCESSES_PERSONAL_DATA, { questionId: 'c2-2-4-terms', in: ['upload'] }],
         },
         {
@@ -944,10 +1055,11 @@ export const SECTIONS: OnboardingSection[] = [
         {
           id: 'c2-2-6-outside-uk',
           code: 'C2.2.6',
-          type: 'textarea',
-          label: 'Name the country where data is stored or processed and set out your compliance safeguards',
+          type: 'countries',
+          label: 'Name the countries outside the UK where data is stored or processed',
+          summaryLabel: 'Countries where data is stored or processed',
           hint: [
-            'UK GDPR requires safeguards to be applied to personal data processed, including storage or transfer through of data, in any country outside of the UK. The UK government maintains a list of countries that it has granted adequacy status, which effectively means that personal data can flow freely to that country.',
+            'The UK General Data Protection Regulation (UK GDPR) requires safeguards to be applied to personal data processed, including storage or transfer through of data, in any country outside of the UK. The UK government maintains a list of countries that it has granted adequacy status, which effectively means that personal data can flow freely to that country.',
             'To process data in any other country, an alternative legal mechanism compliant with UK GDPR such as an International Data Transfer Agreement (IDTA) is required. The manufacturer must ensure it has an appropriate safeguard in place if any personal data within its product leaves the UK.',
           ].join('\n\n'),
           hintLink: {
@@ -956,8 +1068,17 @@ export const SECTIONS: OnboardingSection[] = [
           },
           showIf: [PROCESSES_PERSONAL_DATA, { questionId: 'c2-2-5-data-location', in: ['outside-uk'] }],
         },
+        {
+          id: 'c2-2-6-safeguards',
+          code: 'C2.2.6',
+          type: 'country-details',
+          countriesFrom: 'c2-2-6-outside-uk',
+          label: 'Compliance safeguards',
+          hint: 'Set out the safeguards you have in place for the countries you listed.',
+          showIf: [PROCESSES_PERSONAL_DATA, { questionId: 'c2-2-5-data-location', in: ['outside-uk'] }],
+        },
       ]),
-      task('technical-security', 'Technical security', [
+      task('technical-security', 'C3', 'Technical security', [
         {
           id: 'c3-technical-security-intro',
           type: 'info',
@@ -966,11 +1087,10 @@ export const SECTIONS: OnboardingSection[] = [
           hideInSummary: true,
         },
         {
-          id: 'c3-1-cyber-essentials',
+          id: 'c3-1-cyber-essentials-can-provide',
           code: 'C3.1',
-          type: 'upload',
-          noReference: true,
-          label: 'Upload a valid Cyber Essentials certificate',
+          type: 'radios',
+          label: 'Can you provide a valid Cyber Essentials certificate?',
           hint: [
             'Cyber Essentials helps organisations guard against the most common cyber threats.',
             "The scope of assessment should include all systems and services under the supplier's control that support the development, production use and operational management of the system under assessment.",
@@ -979,7 +1099,15 @@ export const SECTIONS: OnboardingSection[] = [
             text: 'Cyber Essentials',
             href: 'https://www.ncsc.gov.uk/cyberessentials/overview',
           },
-          declineLabel: "I can't provide a valid Cyber Essentials certificate right now.",
+          options: CAN_PROVIDE,
+        },
+        {
+          id: 'c3-1-cyber-essentials',
+          code: 'C3.1',
+          type: 'upload',
+          noReference: true,
+          label: 'Upload a valid Cyber Essentials certificate',
+          showIf: canProvide('c3-1-cyber-essentials-can-provide'),
         },
         {
           id: 'c3-1-cyber-essentials-expiry',
@@ -988,7 +1116,7 @@ export const SECTIONS: OnboardingSection[] = [
           mustBeFuture: true,
           label: 'What is the Cyber Essentials certificate expiry date?',
           hint: 'For example, 15 3 2028.',
-          showIf: { questionId: 'c3-1-cyber-essentials', notIn: [NOT_PROVIDED_ANSWER] },
+          showIf: canProvide('c3-1-cyber-essentials-can-provide'),
         },
         {
           id: 'c3-2-charter',
@@ -998,12 +1126,11 @@ export const SECTIONS: OnboardingSection[] = [
           options: YES_NO,
         },
         {
-          id: 'c3-3-pen-test',
+          id: 'c3-3-pen-test-can-provide',
           code: 'C3.3',
-          type: 'upload',
-          noReference: true,
-          label: 'Upload an external penetration test summary report from the last 12 months',
-          hint: 'If your product is internet based or is provided as a service accessible from the internet, for example: a mobile app or server-side software, your external penetration test summary must include Open Web Application Security Project (OWASP) Top 10 vulnerabilities.',
+          type: 'radios',
+          label: 'Can you provide an external penetration test summary report from the last 12 months?',
+          hint: 'If your product is internet based or is provided as a service accessible from the internet, for example, a mobile app or server-side software, your external penetration test summary must include Open Web Application Security Project (OWASP) Top 10 vulnerabilities.',
           details: [
             {
               summary: 'Penetration testing and OWASP guidance',
@@ -1020,8 +1147,15 @@ export const SECTIONS: OnboardingSection[] = [
               ],
             },
           ],
-          declineLabel: "I can't provide an external penetration test summary report right now.",
-          showIf: { questionId: 'c3-2-charter', in: ['no'] },
+          options: CAN_PROVIDE,
+        },
+        {
+          id: 'c3-3-pen-test',
+          code: 'C3.3',
+          type: 'upload',
+          noReference: true,
+          label: 'Upload an external penetration test summary report from the last 12 months',
+          showIf: canProvide('c3-3-pen-test-can-provide'),
         },
         {
           id: 'c3-4-code-of-practice',
@@ -1038,9 +1172,7 @@ export const SECTIONS: OnboardingSection[] = [
             text: 'Software Security Code of Practice',
             href: 'https://www.gov.uk/government/publications/software-security-code-of-practice/software-security-code-of-practice',
           },
-          options: CONFIRMED_UNABLE,
-          showIf: { questionId: 'c3-2-charter', in: ['no'] },
-        },
+          options: CONFIRMED_UNABLE,        },
         {
           id: 'c3-5-mfa-plan',
           code: 'C3.5',
@@ -1051,9 +1183,7 @@ export const SECTIONS: OnboardingSection[] = [
             text: 'Multi-Factor Authentication',
             href: 'https://www.ncsc.gov.uk/collection/mfa-for-your-corporate-online-services',
           },
-          options: YES_NO,
-          showIf: { questionId: 'c3-2-charter', in: ['no'] },
-        },
+          options: YES_NO,        },
         {
           id: 'c3-5-1-privileged-mfa',
           code: 'C3.5.1',
@@ -1061,7 +1191,7 @@ export const SECTIONS: OnboardingSection[] = [
           label:
             'Confirm that all supplier accounts with privileged access to the product have multi-factor authentication (MFA) or equivalent?',
           hint: [
-            'MFA must be enforced on all privileged access connections to the product, and on all remote access connections to the product, but does not necessarily need to be enforced on the product itself. For example; MFA may be applied to initial connectivity to a network from which the product can be accessed directly.',
+            'MFA must be enforced on all privileged access connections to the product, and on all remote access connections to the product, but does not necessarily need to be enforced on the product itself. For example, MFA may be applied to initial connectivity to a network from which the product can be accessed directly.',
             'The NCSC provides guidance on Multi-Factor Authentication.',
           ].join('\n\n'),
           hintLink: {
@@ -1076,27 +1206,20 @@ export const SECTIONS: OnboardingSection[] = [
               label: 'Not applicable',
               hint: 'Supplier has no access to the product',
             },
-          ],
-          showIf: { questionId: 'c3-2-charter', in: ['no'] },
-        },
+          ],        },
         {
           id: 'c3-6-logging',
           code: 'C3.6',
           type: 'radios',
           label: 'Have logging and reporting requirements been defined?',
-          hint: [
-            'The NCSC provides guidance on logging and protective monitoring. Logging, such as audit trails of all access, must be in place if you answer yes.',
-            'It is acknowledged that not all manufacturers will have advanced audit capabilities.',
-          ].join('\n\n'),
+          hint: "The National Cyber Security Centre (NCSC) provides guidance on logging and protective monitoring. Logging, such as audit trails that show all access, must be in place if you answer 'Yes'. We recognise that not all manufacturers will have advanced audit capabilities.",
           hintLink: {
             text: 'logging and protective monitoring',
             href: 'https://www.ncsc.gov.uk/collection/device-security-guidance/managing-deployed-devices/logging-and-protective-monitoring',
           },
-          options: YES_NO,
-          showIf: { questionId: 'c3-2-charter', in: ['no'] },
-        },
+          options: YES_NO,        },
       ]),
-      task('interoperability', 'Interoperability', [
+      task('interoperability', 'C4', 'Interoperability', [
         {
           id: 'c4-interoperability-intro',
           type: 'info',
@@ -1117,7 +1240,7 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C4.1.1',
           type: 'textarea',
           pageTitle: 'Confirm your APIs use international or industry standards for interoperability appropriate for the use case',
-          label: 'List the standards and explain why they are appropriate',
+          label: "List the standards relevant to the product's use case and explain why they are appropriate",
           hint: [
             "The NHS England Standards Directory allows manufacturers to identify standards relevant for their product's use case.",
             'NHS England website Developer and integration hub provides guidance on national APIs and API standards.',
@@ -1160,7 +1283,7 @@ export const SECTIONS: OnboardingSection[] = [
           id: 'c4-1-3-documentation',
           code: 'C4.1.3',
           type: 'textarea',
-          label: 'Give details on how your APIs are documented and made available to third parties',
+          label: 'Provide details on how your APIs are documented and made available to third parties',
           showIf: { questionId: 'c4-1-2-open-api', in: ['cannot-confirm'] },
         },
         {
@@ -1168,14 +1291,14 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C4.2',
           type: 'radios',
           label: 'Is your product intended to share or receive data from national or local care systems?',
-          hint: 'This could be for managing or delivering patient care, for example; clinical record systems, patient administration systems. Or it could be for other administrative purposes where a patient identity is relevant, for example; license management of a digital therapeutic.',
+          hint: 'This could be for managing or delivering patient care, for example, clinical record systems, or patient administration systems. Or it could be for other administrative purposes where a patient identity is relevant, for example, license management of a digital therapeutic (DTx).',
           options: YES_NO,
         },
         {
           id: 'c4-2-1-nhs-number',
           code: 'C4.2.1',
           type: 'radios',
-          label: 'Is your product capable of using the NHS number to identify patient data when exchanging data?',
+          label: 'Is your product capable of using an NHS number to identify patient data when exchanging data?',
           hint: [
             'The NHS number is the mandated standard identifier for patients.',
             'Further guidance on the benefits of using NHS numbers.',
@@ -1292,27 +1415,17 @@ export const SECTIONS: OnboardingSection[] = [
   },
   {
     id: 'usability-accessibility',
-    title: 'Key principles for success (usability and accessibility)',
+    title: 'Usability and accessibility',
     description: 'Establishing that your product has followed best practice.',
     tasks: [
-      task('usability-accessibility', 'Usability and accessibility', [
+      task('usability-accessibility', 'D', 'Usability and accessibility', [
         {
           id: 'd1-1-pathways',
           code: 'D1.1',
           type: 'radios',
           label: 'Can you provide information about how the product fits into existing systems such as care pathways or staff journeys?',
           hint: 'Understanding intended use case in context of user journey is important to help Health and Care providers to design accessible, usable digital care pathways.',
-          options: [
-            {
-              value: 'yes',
-              label: 'Yes',
-              hint: 'You can upload this on the next page',
-            },
-            {
-              value: 'no',
-              label: "No, I can't provide this right now",
-            },
-          ],
+          options: CAN_PROVIDE,
         },
         {
           id: 'd1-1-pathways-upload',
@@ -1525,8 +1638,20 @@ export function isFutureIsoDate(value: string | undefined): boolean {
 export function isQuestionAnswered(q: OnboardingQuestion, answers: TaskAnswers): boolean {
   switch (q.type) {
     case 'upload':
-      if (q.multiple) return answers[q.id] === NOT_PROVIDED_ANSWER || parseUploadedDocuments(answers[q.id]).length > 0
+      if (q.multiple) return parseUploadedDocuments(answers[q.id]).length > 0
       return isAnswered(answers[q.id]) && (q.noReference || isAnswered(answers[`${q.id}${UPLOAD_REFERENCE_SUFFIX}`]))
+    case 'countries':
+      return countriesError(q, answers) === undefined
+    case 'textarea':
+      return isAnswered(answers[q.id]) && countCharacters(answers[q.id] ?? '') <= TEXTAREA_CHARACTER_LIMIT
+    case 'country-details': {
+      const countries = countriesFor(q, answers)
+      const details = parseCountryDetails(answers[q.id])
+      return (
+        countries.length > 0 &&
+        countries.every((c) => isAnswered(details[c]) && countCharacters(details[c] ?? '') <= TEXTAREA_CHARACTER_LIMIT)
+      )
+    }
     case 'fields':
       return q.fields.every((f) => f.optional || isAnswered(answers[fieldKey(q.id, f)]))
     case 'multi-upload':
@@ -1550,6 +1675,142 @@ export function isQuestionAnswered(q: OnboardingQuestion, answers: TaskAnswers):
     default:
       return isAnswered(answers[q.id])
   }
+}
+
+function uploadHasFile(question: OnboardingQuestion, answers: TaskAnswers): boolean {
+  if (question.type !== 'upload') return false
+  if (question.multiple) return parseUploadedDocuments(answers[question.id]).length > 0
+  return isAnswered(answers[question.id])
+}
+
+/** First problem with a `countries` answer, with the row it applies to. */
+export function countriesProblem(
+  question: OnboardingQuestion,
+  answers: TaskAnswers,
+): { message: string; row: number } | undefined {
+  const rows = parseCountries(answers[question.id])
+  if (rows.length === 0) return { message: 'Enter a country', row: 0 }
+  const seen = new Set<string>()
+  for (let row = 0; row < rows.length; row += 1) {
+    const value = rows[row].trim()
+    if (!value) return { message: rows.length > 1 ? 'Enter a country or delete it' : 'Enter a country', row }
+    const name = canonicalCountryName(value)
+    if (!name) return { message: `Select ${value} from the list of countries`, row }
+    if (seen.has(name)) return { message: `You have already added ${name}`, row }
+    seen.add(name)
+  }
+  return undefined
+}
+
+function countriesError(question: OnboardingQuestion, answers: TaskAnswers): string | undefined {
+  return countriesProblem(question, answers)?.message
+}
+
+/** First problem with a `country-details` answer, with the row it applies to. */
+function countryDetailsProblem(
+  question: OnboardingQuestion,
+  answers: TaskAnswers,
+): { message: string; row: number } | undefined {
+  if (question.type !== 'country-details') return undefined
+  const details = parseCountryDetails(answers[question.id])
+  const countries = countriesFor(question, answers)
+  for (let row = 0; row < countries.length; row += 1) {
+    const country = countries[row]
+    const value = details[country] ?? ''
+    if (countCharacters(value) > TEXTAREA_CHARACTER_LIMIT) {
+      return { message: characterLimitMessage(`Safeguards for ${country}`), row }
+    }
+    if (!isAnswered(value)) return { message: `Set out the safeguards for ${country}`, row }
+  }
+  return undefined
+}
+
+/** Field id of one country's row: its autocomplete, or its text area on a `country-details` page. */
+export function countryFieldId(questionId: string, row: number): string {
+  return `${questionId}-${row}`
+}
+
+/** Error message for the answer(s) on one question page, or undefined when it can be saved. */
+export function questionError(question: OnboardingQuestion, merged: TaskAnswers): string | undefined {
+  if (question.type === 'date' && question.mustBeFuture) {
+    const value = merged[question.id]
+    if (!isValidIsoDate(value)) return 'Enter a valid date'
+    if (!isFutureIsoDate(value)) return 'The expiry date must be in the future'
+    return undefined
+  }
+  if (
+    (question.type === 'radios' || question.type === 'checkboxes') &&
+    isAnswered(merged[question.id]) &&
+    optionFollowUp(question, merged[question.id]) &&
+    !isAnswered(merged[otherDetailsKey(question.id)])
+  ) {
+    return optionFollowUp(question, merged[question.id])?.inputType === 'url' ? 'Enter a URL' : 'Enter details'
+  }
+  if (question.type === 'textarea' && countCharacters(merged[question.id] ?? '') > TEXTAREA_CHARACTER_LIMIT) {
+    return characterLimitMessage(question.label)
+  }
+  if (question.type === 'countries') return countriesError(question, merged)
+  if (question.type === 'country-details') return countryDetailsProblem(question, merged)?.message
+  if (question.type === 'upload' && !question.multiple) {
+    const hasFile = uploadHasFile(question, merged)
+    const needsRef = !question.noReference
+    const hasRef = isAnswered(merged[`${question.id}${UPLOAD_REFERENCE_SUFFIX}`])
+    if (!hasFile) {
+      if (question.optional) return undefined
+      return needsRef && !hasRef ? 'Select a file and enter a reference name' : 'Select a file'
+    }
+    if (needsRef && !hasRef) return 'Enter a reference name'
+    return undefined
+  }
+  if (question.optional || question.type === 'blocked' || question.type === 'info' || isQuestionAnswered(question, merged)) {
+    return undefined
+  }
+  if (question.type === 'upload') return 'Select a file'
+  if (question.type === 'date') return 'Enter a valid date'
+  if (question.type === 'multi-upload') {
+    return parseUploadedDocuments(merged[question.id]).length === 0
+      ? 'Add at least one document and mark the question as complete'
+      : 'Mark the question as complete'
+  }
+  if (question.type === 'fields') return 'Complete the required fields'
+  if (question.type === 'radios' || question.type === 'checkboxes') return 'Select an answer'
+  return 'Enter an answer'
+}
+
+/** Field id the error summary links to for a question page. */
+export function questionErrorFieldId(question: OnboardingQuestion, merged: TaskAnswers): string {
+  if (question.type === 'date') return `${question.id}-day`
+  if (question.type === 'countries') return countryFieldId(question.id, countriesProblem(question, merged)?.row ?? 0)
+  if (question.type === 'country-details') {
+    return countryFieldId(question.id, countryDetailsProblem(question, merged)?.row ?? 0)
+  }
+  if (question.type === 'upload') {
+    if (question.multiple || question.noReference || !uploadHasFile(question, merged)) return `${question.id}-file`
+    if (!isAnswered(merged[`${question.id}${UPLOAD_REFERENCE_SUFFIX}`])) return `${question.id}${UPLOAD_REFERENCE_SUFFIX}`
+    return `${question.id}-file`
+  }
+  if (question.type === 'multi-upload') {
+    return parseUploadedDocuments(merged[question.id]).length === 0
+      ? `${question.id}-file`
+      : `${question.id}${MULTI_UPLOAD_CONFIRMED_SUFFIX}`
+  }
+  if (
+    (question.type === 'radios' || question.type === 'checkboxes') &&
+    optionFollowUp(question, merged[question.id]) &&
+    !isAnswered(merged[otherDetailsKey(question.id)])
+  ) {
+    return otherDetailsKey(question.id)
+  }
+  if (question.type === 'radios' || question.type === 'checkboxes') {
+    const first = question.options.find((o) => !o.hidden)
+    return first ? `${question.id}-${first.value}` : question.id
+  }
+  if (question.type === 'fields') {
+    const field =
+      question.fields.find((f) => !f.optional && !isAnswered(merged[fieldKey(question.id, f)])) ?? question.fields[0]
+    return field ? `${question.id}-${field.key}` : question.id
+  }
+  return question.id
 }
 
 const PRODUCT_NAME_TASK_ID = 'product-details'
@@ -1634,6 +1895,37 @@ export function optionDisplayLabel(
   answersFor: (taskId: string) => TaskAnswers,
 ): string {
   return substituteProductName(option.label, knownProductName(answersFor))
+}
+
+/** The question with the product name (and intended use) filled into every piece of displayed text. */
+export function questionForDisplay(
+  question: OnboardingQuestion,
+  answersFor: (taskId: string) => TaskAnswers,
+): OnboardingQuestion {
+  const productName = knownProductName(answersFor)
+  const display = {
+    ...question,
+    label: questionDisplayLabel(question, answersFor),
+    pageTitle: questionDisplayPageTitle(question, answersFor),
+    hint: questionDisplayHint(question, answersFor),
+    fieldHint: question.fieldHint ? substituteProductName(question.fieldHint, productName) : question.fieldHint,
+    details: question.details?.map((item) => ({
+      ...item,
+      summary: substituteProductName(item.summary, productName),
+      text: substituteProductName(item.text, productName),
+    })),
+  } as OnboardingQuestion
+  if (display.type === 'radios' || display.type === 'checkboxes') {
+    return {
+      ...display,
+      options: display.options.map((o) => ({
+        ...o,
+        label: optionDisplayLabel(question, o, answersFor),
+        hint: o.hint ? substituteProductName(o.hint, productName) : o.hint,
+      })),
+    }
+  }
+  return display
 }
 
 /* -------------------------------- routing ------------------------------- */

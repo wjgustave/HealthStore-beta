@@ -25,8 +25,9 @@ export function BackLink({ href }: { href: string }) {
   )
 }
 
-export function ErrorSummary({ errors }: { errors: FieldError[] }) {
+export function ErrorSummary({ errors, id = 'error-summary' }: { errors: FieldError[]; id?: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  const titleId = `${id}-title`
   useEffect(() => {
     ref.current?.focus()
   }, [errors])
@@ -35,11 +36,11 @@ export function ErrorSummary({ errors }: { errors: FieldError[] }) {
     <div
       ref={ref}
       className="nhsuk-error-summary"
-      aria-labelledby="eoi-error-summary-title"
+      aria-labelledby={titleId}
       role="alert"
       tabIndex={-1}
     >
-      <h2 className="nhsuk-error-summary__title" id="eoi-error-summary-title">
+      <h2 className="nhsuk-error-summary__title" id={titleId}>
         There is a problem
       </h2>
       <div className="nhsuk-error-summary__body">

@@ -1,7 +1,7 @@
 import { PeerReviewedEvaluationCard } from '@/components/AppDetailSections'
 import { STORE_ACCENT } from '@/lib/storeAccent'
 
-/** "Clinical publications and evaluations" card grid — shared by Assurance and evidence (narrative) and the Evidence tab (non-narrative). */
+/** "Clinical publications and evaluations" card grid — shared by Peer and patient experience (narrative) and the Evidence tab (non-narrative). */
 export default function PdpClinicalPublications({
   publications,
   className = '',

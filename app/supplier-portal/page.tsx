@@ -9,8 +9,8 @@ export default function SupplierPortalDashboardPage() {
   return (
     <div className="nhsuk-width-container nhsuk-main-wrapper">
       <div className="hs-section">
-        <span className="nhsuk-caption-l">{SAMPLE_SUPPLIER.name}</span>
         <h1 className="nhsuk-heading-xl">Dashboard</h1>
+        <span className="nhsuk-caption-l hs-caption-below">{SAMPLE_SUPPLIER.name}</span>
         <p className="nhsuk-body-l hs-measure">
           Keep your product information and documents up to date, and manage the pages buyers see on the NHS
           Commissioning Store.

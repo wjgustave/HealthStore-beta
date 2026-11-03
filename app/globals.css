@@ -1283,6 +1283,56 @@ a.hs-snapshot-strip__segment--link {
   color: #212b32;
   text-decoration: none;
 }
+/* GOV.UK accessible-autocomplete (CountryAutocomplete) restyled to match the NHS text input. */
+/* Page captions sit under the page heading: the heading's bottom margin moves onto the caption. */
+h1:has(+ .hs-caption-below),
+.nhsuk-fieldset__legend:has(+ .hs-caption-below),
+.nhsuk-label-wrapper:has(+ .hs-caption-below) > .nhsuk-label {
+  margin-bottom: 8px;
+}
+.hs-caption-below {
+  margin-bottom: 24px;
+}
+@media (min-width: 40.0625em) {
+  .hs-caption-below {
+    margin-bottom: 32px;
+  }
+}
+/* The input is transparent so the typeahead hint behind it shows through. */
+.hs-autocomplete .autocomplete__wrapper {
+  background-color: #ffffff;
+}
+/* The hint must share the input's box and type metrics or its text shows offset. */
+.hs-autocomplete .autocomplete__hint,
+.hs-autocomplete .autocomplete__input {
+  border: 2px solid #4c6272;
+  border-radius: 0;
+  font: inherit;
+  font-size: 1.1875rem;
+  line-height: 1.5;
+  height: 40px;
+  padding: 4px 8px;
+}
+.hs-autocomplete .autocomplete__input--focused,
+.hs-autocomplete .autocomplete__input:focus {
+  border-color: #212b32;
+  box-shadow: inset 0 0 0 2px #212b32;
+  outline: 4px solid #ffeb3b;
+  outline-offset: 0;
+}
+.hs-autocomplete--error .autocomplete__input {
+  border-color: #d5281b;
+}
+.hs-autocomplete .autocomplete__menu {
+  border: 2px solid #212b32;
+  border-top: 0;
+  font-size: 1.1875rem;
+}
+.hs-autocomplete .autocomplete__option--focused,
+.hs-autocomplete .autocomplete__option:hover {
+  background-color: #005eb8;
+  border-color: #005eb8;
+}
 /* Product names live in the strip above; keep each table's col headers for
    screen readers only so they don't leave an empty visual band. */
 .hs-compare-tables .nhsuk-table-responsive > .nhsuk-table__head {
@@ -1807,6 +1857,27 @@ a.hs-snapshot-strip__segment--link {
   color: var(--text-muted);
   font-weight: 600;
 }
+.hs-pathway-steps { list-style: none; margin: 0; padding: 0; }
+.hs-pathway-steps > li { margin: 0; }
+.hs-pathway-tag { margin-left: var(--space-2); vertical-align: middle; }
+
+/* ─── Add another (no NHS or GOV.UK core equivalent — adapted from MoJ "Add another") ─── */
+.hs-add-another__item {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.hs-add-another__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.hs-add-another__actions .nhsuk-button { margin-bottom: 0; }
+.hs-pathway-editor-preview {
+  border-top: 4px solid var(--nhs-blue);
+  padding-top: var(--space-3);
+  margin-top: var(--space-5);
+}
 
 /* ─── Impact bars (no NHS equivalent — inferred; flat 4px, not pill) ─── */
 .hs-pathway-impact { margin: var(--space-4) 0 0; }
@@ -1850,20 +1921,6 @@ a.hs-snapshot-strip__segment--link {
 .hs-card ul li::before { content: '✓'; position: absolute; left: 0; color: var(--nhs-green); font-weight: 600; }
 
 /* ─── Deployment register ("Where it's live") ─── */
-/* Summary stat tiles above the register table — NHS primary card (non-clickable):
-   white fill, 1px --border outline, square corners. [Provenance: NHS] */
-.hs-deploy-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-@media (max-width: 639px) {
-  #nhs-experience .hs-deploy-stats {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-}
 .hs-deploy-sites {
   list-style: none;
   margin: 0;
@@ -1876,30 +1933,8 @@ a.hs-snapshot-strip__segment--link {
 .hs-deploy-sites > li::marker {
   content: none;
 }
-.hs-deploy-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 6rem;
-  padding: var(--space-3) var(--space-4);
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-}
-.hs-deploy-stat__value {
-  font-size: var(--text-card-title);
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--text-primary);
-}
-.hs-deploy-stat__label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-}
-/* NHS experience — intro, stat labels, badges, outcomes and sources at 16px (NHS body-s). */
+/* NHS experience — intro, badges, outcomes and sources at 16px (NHS body-s). */
 #nhs-experience .hs-text-label,
-#nhs-experience .hs-deploy-stat__label,
 #nhs-experience .badge,
 #nhs-experience .hs-case-card__source {
   font-size: 1rem;

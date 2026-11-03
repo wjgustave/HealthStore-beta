@@ -4,13 +4,16 @@ import { createContext, useContext, type ReactNode } from 'react'
 import { PdpShareRegion } from '@/components/PdpSharePrintContext'
 
 /**
- * Heading mode for PdpSection. On a section page the first section's title is
- * the page H1 (with the product name as a caption); every other section keeps
- * an H2. Provided by PdpSectionHeading on the section route.
+ * Heading mode for PdpSection. On a page made of a single section, that section's
+ * heading becomes the page H1 (page title, with the product name as a caption);
+ * otherwise the route renders the H1 and every section keeps an H2.
+ * Provided by PdpSectionHeadingProvider on the section route.
  */
 export type PdpSectionHeading = {
   /** Section id that should render as the page H1. */
-  h1SectionId: string
+  h1SectionId?: string
+  /** Text of the H1 when it replaces the section title (the page name). */
+  pageTitle?: string
   /** Caption shown above the H1 (the product name). */
   caption?: string
 }
@@ -61,13 +64,13 @@ export function PdpSection({
       className={`${isPageTitle ? 'nhsuk-u-margin-bottom-6' : 'nhsuk-u-margin-bottom-8'} ${className}`.trim()}
     >
       <section id={id}>
-        {/* NHS typography: page title = heading-xl with the product name as a caption;
+        {/* NHS typography: page title = heading-xl with the product name as a caption under it;
             section titles = heading-l; descriptions sit in body text. */}
         {isPageTitle ? (
-          <h1 className="nhsuk-heading-xl">
-            {heading.caption ? <span className="nhsuk-caption-xl">{heading.caption}</span> : null}
-            {title}
-          </h1>
+          <>
+            <h1 className="nhsuk-heading-xl">{heading.pageTitle ?? title}</h1>
+            {heading.caption ? <span className="nhsuk-caption-xl hs-caption-below">{heading.caption}</span> : null}
+          </>
         ) : (
           <h2 className="nhsuk-heading-l hs-pdp-heading">{title}</h2>
         )}

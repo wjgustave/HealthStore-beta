@@ -1,20 +1,10 @@
-import type { ReactNode } from 'react'
 import type { App } from '@/lib/data'
 import type { ProductNarrative } from '@/lib/content/productModel'
 import { PdpSection } from '@/components/PdpSection'
 import { pdpSectionTitle } from '@/lib/pdpSections'
 
-/** "How to buy" section — commercial route, buyer pack and the express-interest callout. */
-export default function PdpHowToBuy({
-  app,
-  narrative,
-  expressInterest,
-}: {
-  app: App
-  narrative: ProductNarrative
-  /** Express interest callout — rendered at the end of the section. */
-  expressInterest?: ReactNode
-}) {
+/** "How to commission and procure" section — HealthStore role, commercial route and buyer pack. */
+export default function PdpHowToBuy({ app, narrative }: { app: App; narrative: ProductNarrative }) {
   const commercial = narrative.commercial_readiness
   if (!commercial) return null
 
@@ -47,7 +37,6 @@ export default function PdpHowToBuy({
             </div>
           ))}
       </dl>
-      {expressInterest}
     </PdpSection>
   )
 }

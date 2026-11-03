@@ -79,7 +79,6 @@ export async function getPdpPageModel(
     showNarrativeSpine,
     showLocalValue,
     hasLinkedFunding: linkedFundingIds.length > 0,
-    context: commissionerContext,
   })
   const hasSection = (id: string) => sections.some((s) => s.id === id)
 
@@ -87,8 +86,8 @@ export async function getPdpPageModel(
     app,
     showNarrativeSpine
       ? {
-          commercialHref: hasSection('how-to-buy') ? pdpSectionPath(slug, 'how-to-buy') : undefined,
-          interopHref: hasSection('resources') ? pdpSectionPath(slug, 'resources') : undefined,
+          commercialHref: hasSection('procurement') ? pdpSectionPath(slug, 'procurement') : undefined,
+          interopHref: hasSection('implementation') ? pdpSectionPath(slug, 'implementation') : undefined,
           demoHref: hasSection('resources') ? pdpSectionPath(slug, 'resources') : undefined,
           governanceHref: hasSection('assurance') ? pdpSectionPath(slug, 'assurance') : undefined,
         }

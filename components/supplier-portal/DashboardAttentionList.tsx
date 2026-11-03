@@ -3,14 +3,13 @@
 import Link from 'next/link'
 import { formBasePath } from '@/lib/supplierOnboarding'
 import {
-  MANAGED_PRODUCTS,
   PORTAL_PATHS,
   SUPPLIER_PAGE_ID,
   publishedProductHref,
   type PortalStatus,
 } from '@/lib/supplierPortal'
 import { PortalStatusTags } from './PortalStatusTag'
-import { companyStatus, publishedPageStatus, useOnboardingFormSummaries } from './portalStatus'
+import { companyStatus, publishedPageStatus, useAvailableManagedProducts, useOnboardingFormSummaries } from './portalStatus'
 import { useSupplierPortal } from './useSupplierPortal'
 
 /** Portal section an item belongs to. Items with no group (e.g. Company information) are listed first. */
@@ -27,7 +26,8 @@ type Item = { id: string; label: string; href: string; statuses: PortalStatus[];
 export default function DashboardAttentionList() {
   const { hydrated: formsReady, summaries } = useOnboardingFormSummaries()
   const { hydrated, getRecord, company } = useSupplierPortal()
-  if (!formsReady || !hydrated) return null
+  const { hydrated: productsReady, products } = useAvailableManagedProducts()
+  if (!formsReady || !hydrated || !productsReady) return null
 
   // Incomplete and Unpublished only — not drafts or unpublished changes.
   const items: Item[] = []
@@ -44,7 +44,7 @@ export default function DashboardAttentionList() {
       group: 'Product management',
     })
   }
-  for (const p of MANAGED_PRODUCTS) {
+  for (const p of products) {
     if (publishedPageStatus(getRecord('pages', p.id)) === 'unpublished') {
       items.push({
         id: `page-${p.id}`,

@@ -33,11 +33,6 @@ export function managedProductHref(productId: string): string {
   return `${PORTAL_PATHS.manage}/${productId}`
 }
 
-export function managedProductFieldHref(productId: string, fieldId: string, options?: { returnTo?: 'check-answers' }): string {
-  const href = `${managedProductHref(productId)}/${fieldId}`
-  return options?.returnTo === 'check-answers' ? `${href}?return=check-answers` : href
-}
-
 export function managedProductCheckAnswersHref(productId: string): string {
   return `${managedProductHref(productId)}/check-answers`
 }
@@ -66,14 +61,28 @@ export function publishedSupplierConfirmationHref(): string {
   return `${PORTAL_PATHS.supplierPage}/confirmation`
 }
 
-/** Prototype dummy answers for published page fields (fill shortcut). */
+export function managedProductQuestionHref(
+  productId: string,
+  taskSlug: string,
+  step: number,
+  options?: { returnTo?: 'check-answers' },
+): string {
+  const href = `${managedProductHref(productId)}/${taskSlug}${step > 1 ? `/${step}` : ''}`
+  return options?.returnTo === 'check-answers' ? `${href}?return=check-answers` : href
+}
+
+export function publishedProductSectionHref(productId: string, sectionId: string): string {
+  return `${publishedProductHref(productId)}/${sectionId}`
+}
+
+/** Full product page preview. `published` shows the submitted version only. */
+export function publishedProductPreviewHref(productId: string, options?: { published?: boolean }): string {
+  const href = `${publishedProductHref(productId)}/preview`
+  return options?.published ? `${href}?version=published` : href
+}
+
+/** Prototype dummy answers for supplier page fields (fill shortcut). */
 export const PUBLISHED_PAGE_DUMMY_ANSWERS: Record<string, string> = {
-  overview:
-    'Respira CBT is a clinician-supported digital cognitive behavioural therapy programme for adults with generalised anxiety disorder, delivered over 12 weeks with weekly asynchronous therapist review.',
-  why_it_matters:
-    'Supports local Talking Therapies pathway goals for faster access to treatment and higher reliable recovery rates for adults with mild to moderate anxiety.',
-  contact_name: 'Brandson Sanderson',
-  contact_email: 'brandson.sanderson@aurora-health.example',
   about:
     'Aurora Health develops clinician-supported digital therapeutics for common mental health conditions, used by NHS Talking Therapies services to extend capacity between face-to-face appointments.',
   website: 'https://www.aurora-health.example',
@@ -191,67 +200,45 @@ export type ContentField = {
 /** Content shown read-only because it comes from onboarding. */
 export type ReadOnlyRow = { label: string; value: string }
 
-export type DocumentField = {
-  id: string
-  label: string
-  hint?: string
-}
-
-/** Product information the supplier can update after onboarding. */
-export const PRODUCT_CONTENT_FIELDS: ContentField[] = [
-  { id: 'summary', label: 'Product summary', hint: 'One or two sentences describing what the product does.', type: 'textarea' },
-  { id: 'target_patients', label: 'Who the product is for', type: 'textarea' },
-  { id: 'support_email', label: 'Support contact email', hint: 'Where commissioners and patients can get help.', type: 'text' },
-]
-
-/** Assurance documents held for an onboarded product (DTAC order). */
-export const PRODUCT_DOCUMENT_FIELDS: DocumentField[] = [
-  { id: 'paq', label: 'PAQ form' },
-  { id: 'dcb0129', label: 'DCB0129 clinical safety case report' },
-  { id: 'hazard_log', label: 'DCB0129 hazard log' },
-  { id: 'ico', label: 'ICO registration certificate' },
-  { id: 'cyber_essentials', label: 'Cyber Essentials certificate' },
-  { id: 'pen_test', label: 'Penetration test summary report' },
-  { id: 'wcag', label: 'WCAG 2.2 AA audit report' },
-  { id: 'dtac', label: 'Completed DTAC form' },
-]
-
+/**
+ * An onboarded product. Its information is the onboarding questionnaire
+ * (lib/supplierOnboarding.ts), stored as flat answers keyed by question id.
+ */
 export type ManagedProduct = {
   id: string
-  /** Catalogue slug in content/apps (source of the starting content). */
+  /** Key of the held product record (lib/portalProducts). */
   appSlug: string
   name: string
   /** ISO date of the last update. */
   lastUpdated: string
   /** Starting status before the supplier changes anything. */
   status: ManagedProductStatus
-  /** Document file names currently held, keyed by DocumentField id. */
-  documents: Record<string, { fileName: string; uploadedOn: string }>
+  /**
+   * The onboarding form this product comes from. The product (and its page)
+   * only appears once that form has been submitted.
+   */
+  onboardingFormId?: string
 }
 
-function docs(prefix: string, overrides: ManagedProduct['documents'] = {}): ManagedProduct['documents'] {
-  const base: ManagedProduct['documents'] = {
-    paq: { fileName: `${prefix}-PAQ-v1.0.pdf`, uploadedOn: '2026-01-14' },
-    dcb0129: { fileName: `${prefix}-DCB0129-safety-case-v3.2.pdf`, uploadedOn: '2026-03-09' },
-    hazard_log: { fileName: `${prefix}-DCB0129-hazard-log-v3.2.xlsx`, uploadedOn: '2026-03-09' },
-    ico: { fileName: 'Aurora-Health-ICO-registration-2026.pdf', uploadedOn: '2026-05-14' },
-    cyber_essentials: { fileName: 'Aurora-Health-Cyber-Essentials-2025.pdf', uploadedOn: '2025-11-30' },
-    pen_test: { fileName: `${prefix}-pen-test-summary-Feb-2026.pdf`, uploadedOn: '2026-02-12' },
-    wcag: { fileName: `${prefix}-WCAG-2.2-AA-audit.pdf`, uploadedOn: '2026-01-20' },
-    dtac: { fileName: `${prefix}-DTAC-v2.0.pdf`, uploadedOn: '2026-02-26' },
-  }
-  return { ...base, ...overrides }
-}
-
+/**
+ * BreatheWell COPD is already onboarded. Respira CBT joins it once its
+ * onboarding form (ONBOARDING_FORMS) is submitted.
+ */
 export const MANAGED_PRODUCTS: ManagedProduct[] = [
   {
-    id: 'respira-cbt',
-    /** Fictional catalogue slug — portal defaults supply content when no app JSON exists. */
-    appSlug: 'respira-cbt',
-    name: 'Respira CBT',
+    id: 'breathewell-copd',
+    appSlug: 'breathewell-copd',
+    name: 'BreatheWell COPD',
     lastUpdated: '2026-06-03',
     status: 'up_to_date',
-    documents: docs('Respira-CBT'),
+  },
+  {
+    id: 'respira-cbt',
+    appSlug: 'respira-cbt',
+    name: 'Respira CBT',
+    lastUpdated: '2026-09-22',
+    status: 'up_to_date',
+    onboardingFormId: 'respira-cbt',
   },
 ]
 
@@ -259,28 +246,14 @@ export function findManagedProduct(productId: string): ManagedProduct | undefine
   return MANAGED_PRODUCTS.find((p) => p.id === productId)
 }
 
-/** Stored alongside a document's file name: ISO date it was uploaded. */
-export const UPLOADED_ON_SUFFIX = '__uploaded_on'
-
-export function findProductField(fieldId: string): { kind: 'content'; field: ContentField } | { kind: 'document'; field: DocumentField } | null {
-  const content = PRODUCT_CONTENT_FIELDS.find((f) => f.id === fieldId)
-  if (content) return { kind: 'content', field: content }
-  const document = PRODUCT_DOCUMENT_FIELDS.find((f) => f.id === fieldId)
-  if (document) return { kind: 'document', field: document }
-  return null
+/** The managed product an onboarding form becomes once it is submitted. */
+export function managedProductForForm(formId: string): ManagedProduct | undefined {
+  return MANAGED_PRODUCTS.find((p) => p.onboardingFormId === formId)
 }
 
 /* ------------------------------------------------------------------------ */
 /* Published pages                                                           */
 /* ------------------------------------------------------------------------ */
-
-/** User-entered content on a product's Commissioning Store page. */
-export const PRODUCT_PAGE_FIELDS: ContentField[] = [
-  { id: 'overview', label: 'Overview', hint: 'Shown at the top of the product page.', type: 'textarea' },
-  { id: 'why_it_matters', label: 'Why it matters locally', type: 'textarea' },
-  { id: 'contact_name', label: 'Contact name for commissioners', type: 'text' },
-  { id: 'contact_email', label: 'Contact email for commissioners', type: 'text' },
-]
 
 /** User-entered content on the supplier's Commissioning Store page. */
 export const SUPPLIER_PAGE_FIELDS: ContentField[] = [

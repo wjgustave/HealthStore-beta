@@ -24,6 +24,7 @@ export function NhsFileUpload({
   id,
   label,
   hint,
+  afterHeading,
   afterHint,
   error,
   labelAsPageHeading = false,
@@ -38,6 +39,8 @@ export function NhsFileUpload({
   label: ReactNode
   /** Hint content; rendered in `.nhsuk-hint` with id `${id}-hint`. */
   hint?: ReactNode
+  /** Rendered directly after the label (or its `<h1>`), before the hint. */
+  afterHeading?: ReactNode
   /** Rendered after the hint and before the file control, outside the hint style. */
   afterHint?: ReactNode
   /** NHS error message (`.nhsuk-error-message`, form group gets `--error`). */
@@ -117,6 +120,7 @@ export function NhsFileUpload({
       className={`nhsuk-form-group nhsuk-file-upload${error ? ' nhsuk-form-group--error' : ''}${className ? ` ${className}` : ''}`}
     >
       {labelAsPageHeading ? <h1 className="nhsuk-label-wrapper">{labelEl}</h1> : labelEl}
+      {afterHeading}
       {hint ? (
         <div className="nhsuk-hint" id={hintId}>
           {hint}

@@ -8,6 +8,7 @@ import {
 } from '@/components/supplier-onboard/useOnboardingProgress'
 import { companyComplete } from '@/lib/supplierCompany'
 import {
+  MANAGED_PRODUCTS,
   ONBOARDING_FORMS,
   type ManagedProduct,
   type ManagedProductStatus,
@@ -75,4 +76,14 @@ export function useOnboardingFormSummaries(): { hydrated: boolean; summaries: On
   }, [])
 
   return { hydrated, summaries }
+}
+
+/** Managed products the supplier has. One that comes from an onboarding form appears once that form is submitted. */
+export function useAvailableManagedProducts(): { hydrated: boolean; products: ManagedProduct[] } {
+  const { hydrated, summaries } = useOnboardingFormSummaries()
+  const submitted = new Set(summaries.filter((s) => s.status === 'submitted').map((s) => s.form.id))
+  return {
+    hydrated,
+    products: MANAGED_PRODUCTS.filter((p) => !p.onboardingFormId || submitted.has(p.onboardingFormId)),
+  }
 }

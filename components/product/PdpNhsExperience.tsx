@@ -3,6 +3,7 @@ import { DeploymentRegisterTable } from '@/components/DeploymentRegisterTable'
 import { CaseStudyCards } from '@/components/AppDetailSections'
 import { getDeploymentRegister } from '@/lib/deploymentRegister'
 import { splitPdpEvidence } from '@/lib/pdpEvidence'
+import { pdpSectionTitle } from '@/lib/pdpSections'
 
 /**
  * "NHS experience" — curated spine section that surfaces real-world NHS use.
@@ -10,13 +11,13 @@ import { splitPdpEvidence } from '@/lib/pdpEvidence'
  * Ports the matt_demo `#nhs-experience` idea onto the hybrid PDP, combining the
  * "where it's live" deployment register with case studies into one prominent
  * block. Reuses the richer DeploymentRegisterTable rather than matt_demo's
- * top-4 card summary. Rendered on its own page at /apps/[slug]/nhs-experience.
+ * top-4 card summary. Rendered on the Peer and patient experience page.
  *
  * Real-world programme write-ups from `clinical_evidence_detailed` are folded in
  * as additional case-study cards (Assurance-and-evidence migration); entries
  * flagged `superseded_by_case_study` are skipped because a richer curated case
- * study covers the same deployment. Peer-reviewed publications live in the
- * "Assurance and evidence" section.
+ * study covers the same deployment. Peer-reviewed publications follow in the
+ * "Clinical publications and evaluations" section on the same page.
  *
  * Server component — no client boundary.
  */
@@ -52,7 +53,7 @@ export default function PdpNhsExperience({ app }: { app: any }) {
     <PdpSection
       id="nhs-experience"
       shareKey="narrative-nhs-experience"
-      title="NHS experience"
+      title={pdpSectionTitle('nhs-experience')}
       description="Where this product is deployed across the NHS today, plus named case studies and evaluations."
     >
       {hasRegister && (
@@ -66,15 +67,6 @@ export default function PdpNhsExperience({ app }: { app: any }) {
           <h3 className="nhsuk-heading-s">
             Case studies and evaluations
           </h3>
-          <div className="nhsuk-inset-text">
-            <span className="nhsuk-u-visually-hidden">Information: </span>
-            <p>
-              <strong>Commissioner note:</strong>{' '}
-              Case studies and service evaluations are illustrative local reports and may not meet the same
-              standard as peer-reviewed trials. See the formal record on the{' '}
-              <a href={`/apps/${app.slug}/assurance`}>Assurance and evidence</a> page.
-            </p>
-          </div>
           <CaseStudyCards caseStudies={caseStudies} />
         </div>
       )}

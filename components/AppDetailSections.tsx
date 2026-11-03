@@ -563,60 +563,6 @@ export function CommercialModelAndCostSection({ app }: { app: any }) {
   )
 }
 
-function FinancialContextDlRow({
-  label,
-  value,
-}: {
-  label: string
-  value?: string | null
-}) {
-  const has = !!(value && String(value).trim())
-  return (
-    <div
-      className="flex flex-col sm:flex-row sm:gap-4 gap-1 py-4 border-b last:border-0"
-      style={{ borderColor: 'var(--border)' }}
-    >
-      <dt className="w-full sm:w-52 flex-shrink-0 nhsuk-body-s nhsuk-u-font-weight-bold nhsuk-u-secondary-text-color">
-        {label}
-      </dt>
-      <dd className={`min-w-0 flex-1 leading-relaxed${has ? '' : ' nhsuk-body-s nhsuk-u-secondary-text-color'}`}>
-        {has ? value : CHECK_WITH_SUPPLIER}
-      </dd>
-    </div>
-  )
-}
-
-function IndicativeFinancialContextBody({ app }: { app: any }) {
-  return (
-    <div>
-      <dl>
-        <FinancialContextDlRow
-          label="Expected benefit"
-          value={app.financial_expected_benefit_note ?? app.expected_benefit_note}
-        />
-        <FinancialContextDlRow label="Tariff considerations" value={app.tariff_considerations} />
-        <FinancialContextDlRow label="Provider income impact" value={app.provider_income_note} />
-        <FinancialContextDlRow label="ROI note" value={app.roi_note} />
-        {app.minimum_conditions_for_success && (
-          <FinancialContextDlRow label="Minimum conditions for success" value={app.minimum_conditions_for_success} />
-        )}
-      </dl>
-        <div className="nhsuk-inset-text">
-          <span className="nhsuk-u-visually-hidden">Information: </span>
-          <p>
-            These are directional indicators only. Local finance modelling using actual baseline activity,
-            population size and pathway design is required before any business case submission.
-          </p>
-        </div>
-    </div>
-  )
-}
-
-/** Tariff, ROI, benefit context — title lives on PDP expander row. */
-export function IndicativeFinancialContextSection({ app }: { app: any }) {
-  return <IndicativeFinancialContextBody app={app} />
-}
-
 function GovernanceRow({ label, value, children }: { label: string; value?: string | null; mutedWhenEmpty?: boolean; children?: React.ReactNode }) {
   const has = children != null ? true : !!(value && String(value).trim())
   return (

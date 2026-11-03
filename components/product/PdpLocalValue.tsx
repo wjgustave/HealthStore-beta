@@ -5,7 +5,6 @@ import { pdpSectionTitle, pdpPatientCohortLabel, resolvePdpLocalArea } from '@/l
 import { computeMycopdImpactMetrics } from '@/lib/localData/mycopdImpact'
 import { getDtxImpactRanges } from '@/lib/localData/workspaceData'
 import { PdpSection } from '@/components/PdpSection'
-import { IndicativeFinancialContextSection } from '@/components/AppDetailSections'
 import MycopdImpactCharts from '@/components/product/MycopdImpactCharts'
 import LusciiImpactCharts from '@/components/product/LusciiImpactCharts'
 import PdpWorthTiles, { PdpTileRow, Tile } from '@/components/product/PdpWorthTiles'
@@ -171,15 +170,6 @@ export default function PdpLocalValue({
         <p className="mt-3 hs-text-caption" style={{ color: 'var(--text-muted)' }}>
           Illustrative model (v5) &middot; 500-patient cohort &middot; central effect sizes &middot; price band {formatGbp(PRICE_LOW)}&ndash;{formatGbp(PRICE_HIGH)} per patient / year.
         </p>
-
-        <details className="mt-4">
-          <summary style={{ cursor: 'pointer', fontSize: 'var(--text-label)', color: 'var(--nhs-blue)', fontWeight: 700 }}>
-            Show indicative financial context
-          </summary>
-          <div className="mt-3 hs-surface-card-sm bg-white rounded-lg border p-4" style={{ borderColor: 'var(--border)' }}>
-            <IndicativeFinancialContextSection app={app} />
-          </div>
-        </details>
       </PdpSection>
     </div>
   )

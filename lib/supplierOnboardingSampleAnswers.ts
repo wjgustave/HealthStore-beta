@@ -19,7 +19,10 @@ import {
   CONFIRMED_VALUE,
   MULTI_UPLOAD_CONFIRMED_SUFFIX,
   UPLOAD_REFERENCE_SUFFIX,
+  countriesFor,
   optionFollowUp,
+  serializeCountries,
+  serializeCountryDetails,
   otherDetailsKey,
   questionHasConditionalInput,
   fieldKey,
@@ -48,9 +51,6 @@ const TEXT: Record<string, string> = {
   'c1-2-5-cso__full-name': 'Dr Hannah Okafor',
   'c1-2-5-cso__profession': 'Clinical Psychologist',
   'c1-2-5-cso__registration-number': 'PYL04471',
-  // C2
-  'c2-2-6-outside-uk':
-    'Anonymised analytics events are processed in the Republic of Ireland (AWS eu-west-1) by our analytics sub-processor. No identifiable patient data leaves the UK. Transfers rely on the UK adequacy regulations for the EEA, with an International Data Transfer Addendum in place as a fallback.',
   // C4
   'c4-1-1-standards':
     'Our APIs use HL7 FHIR R4 (UK Core profiles) for referrals and outcome measures, and OAuth 2.0 / OpenID Connect for authorisation. FHIR was chosen so that NHS Talking Therapies systems can consume outcome data (PHQ-9, GAD-7) as coded observations without bespoke mapping.',
@@ -119,6 +119,18 @@ const UPLOADS: Record<string, { name: string; reference: string }> = {
   },
 }
 
+const COUNTRIES: Record<string, string[]> = {
+  'c2-2-6-outside-uk': ['Ireland', 'United States'],
+}
+
+/** Safeguards per country; any other country gets a generic sample. */
+const COUNTRY_DETAILS: Record<string, string> = {
+  Ireland:
+    'Anonymised analytics events are processed in Ireland (AWS eu-west-1) by our analytics sub-processor. Transfers rely on the UK adequacy regulations for the EEA, with an International Data Transfer Addendum in place as a fallback.',
+  'United States':
+    'Crash reports are processed by our error monitoring sub-processor in the United States. The sub-processor is certified under the UK Extension to the EU-US Data Privacy Framework, and an International Data Transfer Agreement (IDTA) is in place.',
+}
+
 /** Fallback for any multi-upload question (none in the current questionnaire). */
 const GENERIC_DOCUMENTS: Array<Pick<UploadedDocument, 'name' | 'reference' | 'size'>> = [
   { name: 'Aurora-Health-Supporting-Evidence.pdf', reference: `${SUPPLIER} — Supporting evidence — ${SUBMISSION_DATE}`, size: 1_284_000 },
@@ -166,9 +178,25 @@ const CHOICES: Record<string, string> = {
   'd1-4-1-wcag': 'no-plan-in-place',
 }
 
-/** Sample answer(s) for one question — the keys a question writes, filled. */
-export function sampleAnswerFor(question: OnboardingQuestion): TaskAnswers {
+/**
+ * Sample answer(s) for one question — the keys a question writes, filled.
+ * `answers` (the task so far) lets `country-details` fill in the countries actually listed.
+ */
+export function sampleAnswerFor(question: OnboardingQuestion, answers: TaskAnswers = {}): TaskAnswers {
   switch (question.type) {
+    case 'countries':
+      return { [question.id]: serializeCountries(COUNTRIES[question.id] ?? ['Ireland']) }
+    case 'country-details': {
+      const countries = countriesFor(question, answers)
+      const listed = countries.length > 0 ? countries : (COUNTRIES[question.countriesFrom] ?? [])
+      return {
+        [question.id]: serializeCountryDetails(
+          Object.fromEntries(
+            listed.map((c) => [c, COUNTRY_DETAILS[c] ?? `Sample safeguards for data stored or processed in ${c} (prototype).`]),
+          ),
+        ),
+      }
+    }
     case 'radios':
     case 'checkboxes': {
       const value = CHOICES[question.id] ?? question.options.find((o) => !o.hidden)?.value ?? ''
@@ -239,7 +267,7 @@ export function fillTaskWithSamples(task: OnboardingTask, existing: TaskAnswers)
   let filled = { ...existing }
   for (const q of task.questions) {
     if (!isQuestionVisible(q, task, filled)) continue
-    if (!isQuestionAnswered(q, filled)) filled = { ...filled, ...sampleAnswerFor(q) }
+    if (!isQuestionAnswered(q, filled)) filled = { ...filled, ...sampleAnswerFor(q, filled) }
   }
   return filled
 }

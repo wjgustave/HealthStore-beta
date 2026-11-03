@@ -12,7 +12,7 @@ import {
   type ContentField,
   type ReadOnlyRow,
 } from '@/lib/supplierPortal'
-import { publishedPageStatus } from './portalStatus'
+import { publishedPageStatus, useAvailableManagedProducts } from './portalStatus'
 import { StatusSummary } from './StatusSummary'
 import { useSupplierPortal } from './useSupplierPortal'
 
@@ -34,6 +34,7 @@ export default function PublishedPageEditor({
   readOnlyHeading,
   readOnlyIntro,
   readOnly,
+  listProducts = false,
   viewHref,
   checkAnswersHref,
 }: {
@@ -45,6 +46,8 @@ export default function PublishedPageEditor({
   readOnlyHeading: string
   readOnlyIntro: string
   readOnly: ReadOnlyRow[]
+  /** Add a "Products on the HealthStore" row listing the supplier's onboarded products. */
+  listProducts?: boolean
   /** Live page on the Commissioning Store, when there is one. */
   viewHref?: string
   /** Check your answers before submitting changes. */
@@ -56,6 +59,10 @@ export default function PublishedPageEditor({
   const [errors, setErrors] = useState<FieldError[]>([])
 
   const record = getRecord('pages', pageId)
+  const { products } = useAvailableManagedProducts()
+  const readOnlyRows = listProducts
+    ? [...readOnly, { label: 'Products on the HealthStore', value: products.map((p) => p.name).join(', ') }]
+    : readOnly
 
   useEffect(() => {
     if (!hydrated) return
@@ -103,8 +110,8 @@ export default function PublishedPageEditor({
     <>
       {errors.length > 0 ? <ErrorSummary errors={errors} /> : null}
 
-      <span className="nhsuk-caption-l">{caption}</span>
       <h1 className="nhsuk-heading-xl">{title}</h1>
+      <span className="nhsuk-caption-l hs-caption-below">{caption}</span>
 
       <StatusSummary
         status={status}
@@ -170,7 +177,7 @@ export default function PublishedPageEditor({
           <p>{readOnlyIntro}</p>
         </div>
         <dl className="nhsuk-summary-list">
-          {readOnly.map((row) => (
+          {readOnlyRows.map((row) => (
             <div key={row.label} className="nhsuk-summary-list__row">
               <dt className="nhsuk-summary-list__key">{row.label}</dt>
               <dd className="nhsuk-summary-list__value">{row.value}</dd>

@@ -27,8 +27,8 @@ export default function TaskStubPage({
       <div className="nhsuk-grid-row">
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={taskListHref} />
-          <span className="nhsuk-caption-l">{section.title}</span>
           <h1 className="nhsuk-heading-xl">{task.title}</h1>
+          <span className="nhsuk-caption-l hs-caption-below">{section.title}</span>
 
           <div className="nhsuk-inset-text">
             <span className="nhsuk-u-visually-hidden">Information: </span>

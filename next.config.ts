@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
       // Supplier onboarding now lives inside the Supplier portal.
       { source: "/supplier-onboard", destination: "/supplier-portal", permanent: false },
       { source: "/supplier-onboard/:path*", destination: "/supplier-portal", permanent: false },
+      // Product pages were regrouped and renamed.
+      { source: "/apps/:slug/the-problem", destination: "/apps/:slug/how-it-helps", permanent: false },
+      { source: "/apps/:slug/local-impact", destination: "/apps/:slug/local-impact-and-value", permanent: false },
+      { source: "/apps/:slug/local-value-worth", destination: "/apps/:slug/local-impact-and-value", permanent: false },
+      { source: "/apps/:slug/nhs-experience", destination: "/apps/:slug/peer-and-patient-experience", permanent: false },
+      { source: "/apps/:slug/how-to-buy", destination: "/apps/:slug/procurement", permanent: false },
     ];
   },
 };

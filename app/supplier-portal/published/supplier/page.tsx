@@ -1,7 +1,6 @@
 import { PortalBreadcrumb } from '@/components/supplier-portal/PortalBreadcrumb'
 import PublishedPageEditor from '@/components/supplier-portal/PublishedPageEditor'
 import {
-  MANAGED_PRODUCTS,
   PORTAL_PATHS,
   PORTAL_SERVICE_NAME,
   SAMPLE_SUPPLIER,
@@ -29,7 +28,8 @@ export default function PublishedSupplierPage() {
             defaults={SUPPLIER_PAGE_DEFAULTS}
             readOnlyHeading="Information from supplier onboarding"
             readOnlyIntro="This information comes from your supplier and product onboarding and cannot be changed here."
-            readOnly={supplierPageReadOnly(MANAGED_PRODUCTS.map((p) => p.name))}
+            readOnly={supplierPageReadOnly()}
+            listProducts
             viewHref={SUPPLIER_STORE_PAGE_HREF}
             checkAnswersHref={publishedSupplierCheckAnswersHref()}
           />

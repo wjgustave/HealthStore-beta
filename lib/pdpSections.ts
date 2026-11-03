@@ -4,14 +4,62 @@ import { getLocalReferenceData } from '@/lib/localData/referenceData'
 import type { IcbReferenceData } from '@/lib/content/productModel'
 
 /**
- * Single source of truth for PDP narrative-spine section titles.
+ * Single source of truth for PDP page and section titles.
  *
- * Both the rendered sections (PdpProblem, PdpHowItHelps, PdpLocalValue, PdpFundingLevers,
- * PdpAssurancePassport, PdpImplementation, PdpNhsExperience, PdpHowToBuy, PdpResources)
- * and the left-hand section nav (lib/pdpOnThisPage.ts) read titles from here, so a
- * title change on the page automatically flows through to the nav label.
- * Each id is also the URL segment of that section's page: /apps/[slug]/[id].
+ * A product has separate pages (PdpPageId, the URL segment /apps/[slug]/[id]); each
+ * page is made of one or more headed sections (PdpSectionId). The rendered sections
+ * read their headings from pdpSectionTitle; the left-hand nav and page H1 read
+ * page names from pdpPageTitle.
  */
+
+export type PdpPageId =
+  | 'how-it-helps'
+  | 'local-impact-and-value'
+  | 'funding-levers'
+  | 'assurance'
+  | 'implementation'
+  | 'peer-and-patient-experience'
+  | 'procurement'
+  | 'get-in-touch'
+  | 'resources'
+
+/** Every page id, in reading order. Also the set of valid /apps/[slug]/[section] segments. */
+export const PDP_PAGE_IDS: readonly PdpPageId[] = [
+  'how-it-helps',
+  'local-impact-and-value',
+  'funding-levers',
+  'assurance',
+  'implementation',
+  'peer-and-patient-experience',
+  'procurement',
+  'get-in-touch',
+  'resources',
+]
+
+/** Canonical name of a PDP page — used for the page H1, nav label and metadata. */
+export function pdpPageTitle(id: PdpPageId, ctx: { appName?: string } = {}): string {
+  const appName = ctx.appName ?? 'this product'
+  switch (id) {
+    case 'how-it-helps':
+      return `How ${appName} helps`
+    case 'local-impact-and-value':
+      return 'Local impact and value'
+    case 'funding-levers':
+      return 'Funding levers'
+    case 'assurance':
+      return 'Assurance'
+    case 'implementation':
+      return 'Implementation'
+    case 'peer-and-patient-experience':
+      return 'Peer and patient experience'
+    case 'procurement':
+      return 'Procurement'
+    case 'get-in-touch':
+      return 'Get in touch'
+    case 'resources':
+      return 'Resources'
+  }
+}
 
 export type PdpSectionId =
   | 'the-problem'
@@ -21,23 +69,12 @@ export type PdpSectionId =
   | 'funding-levers'
   | 'assurance'
   | 'implementation'
+  | 'interoperability'
   | 'nhs-experience'
+  | 'clinical-publications'
   | 'how-to-buy'
+  | 'get-in-touch'
   | 'resources'
-
-/** Every section id, in reading order. Also the set of valid /apps/[slug]/[section] segments. */
-export const PDP_SECTION_IDS: readonly PdpSectionId[] = [
-  'the-problem',
-  'how-it-helps',
-  'local-impact',
-  'local-value-worth',
-  'funding-levers',
-  'assurance',
-  'implementation',
-  'nhs-experience',
-  'how-to-buy',
-  'resources',
-]
 
 export type PdpSectionTitleContext = {
   /** Product name, for titles that interpolate it (e.g. "How {app} changes a treatment pathway"). */
@@ -85,13 +122,19 @@ export function pdpSectionTitle(id: PdpSectionId, ctx: PdpSectionTitleContext = 
     case 'funding-levers':
       return 'Funding levers and tariff alignment'
     case 'assurance':
-      return 'Assurance and evidence'
+      return 'Assurance'
     case 'implementation':
       return 'Making it work at your site'
+    case 'interoperability':
+      return 'Interoperability'
     case 'nhs-experience':
       return 'NHS experience'
+    case 'clinical-publications':
+      return 'Clinical publications and evaluations'
     case 'how-to-buy':
       return 'How to commission and procure'
+    case 'get-in-touch':
+      return 'Get in touch'
     case 'resources':
       return 'Resources'
   }
