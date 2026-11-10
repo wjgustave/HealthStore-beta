@@ -412,11 +412,11 @@ const DCB0160_STANDARD_HREF =
 
 /** Intro copy shown before any clinical safety question. */
 const CLINICAL_SAFETY_INTERSTITIAL_HINT = [
-  'Suppliers must provide responses and documentation relating to the specific version of the DHT product that is subject to assessment.',
-  'DCB0129: Clinical Risk Management: its Application in the Manufacture of Health IT Systems applies to the manufacturers of Health IT systems. A Health IT system is defined as "product used to provide electronic information for health and social care purposes" meaning it can "influence, support or manage real time or near real time direct care of patients/service users".',
-  'Suppliers should note that while DTAC applies to DHTs which cover software products, Health IT systems subject to DCB0129 may include hardware elements provided alongside the software. If the DHT product under assessment is being provided as part of a Health IT system with hardware elements, the DCB0129 documentation requested should cover the full scope of the Health IT system being offered, including any hardware elements. If a manufacturer considers that the C1 Clinical Safety is not applicable to the product being assessed, rationale must be submitted detailing why DCB0129 does not apply.',
-  'Health and care organisations should note that the DCB0160: Clinical Risk Management: its Application in the Deployment and Use of Health IT Systems standard applies to organisations in which the health IT is deployed or used. It is a requirement of the standard (2.5.1) that prior to deploying Health IT systems the organisation must ensure that the manufacturer and Health IT system complies with DCB0129. Health and care organisations must do so in accordance with the requirements and obligations set out in the standard, which includes that personnel involved have the knowledge, experience and competences appropriate to undertaking the clinical risk management, such as a qualified Clinical Safety Officer. Health and care organisations should ensure that all questions in this section of DTAC is assessed by the same personnel.',
-  'If the Clinical Safety Officer or any other individual in the health and care organisation has concerns relating to safety of a medical device including software and apps, this should be reported to the Medicines and Healthcare products Regulatory Agency (MHRA) using the Yellow Card reporting system: Report a problem with a medicine or medical device. If there is a patient safety event relating to the use of any DHT product (whether a medical device or otherwise) which impacts upon the safety of one or more patients accessing NHS services, it should be recorded to the Learn from patient safety events (LFPSE) service (either online or through the local organisation\'s LFPSE-connected LRMS software where possible), in order to support both national learning and local response. This should be done in addition to a Yellow Card report if the DHT is a SaaMD or AIaaMD product.',
+  'Suppliers must provide responses and documentation relating to the specific version of the Digital Health Technology (DHT) product that is subject to assessment.',
+  'DCB0129: Clinical Risk Management: its Application in the Manufacture of Health IT Systems applies to the manufacturers of Health IT systems. A Health IT system is defined as ’product used to provide electronic information for health and social care purposes’ meaning it can "influence, support or manage real-time or near real-time direct care of patients or service users".',
+  'Suppliers should note that while the Digital Technology Assessment Criteria (DTAC) applies to DHTs which cover software products, Health IT systems subject to DCB0129 may include hardware elements provided alongside the software. If the DHT product under assessment is being provided as part of a Health IT system with hardware elements, the DCB0129 documentation requested should cover the full scope of the Health IT system being offered, including any hardware elements. If a manufacturer considers that the C1 Clinical Safety is not applicable to the product being assessed, rationale must be submitted detailing why DCB0129 does not apply.',
+  'Health and care organisations should note that the DCB0160: Clinical Risk Management: its Application in the Deployment and Use of Health IT Systems standard applies to organisations in which the health IT is deployed or used. It is a requirement of the standard (2.5.1) that before deploying Health IT systems, the organisation must ensure that the manufacturer and Health IT system comply with DCB0129. Health and care organisations must do so in accordance with the requirements and obligations set out in the standard, including ensuring that personnel involved have the knowledge, experience and competences appropriate to undertaking the clinical risk management, such as a qualified Clinical Safety Officer (CSO). Health and care organisations should ensure that all questions in this section of the DTAC are assessed by the same personnel.',
+  'If the CSO or any other individual in the health and care organisation has concerns relating to the safety of a medical device, including software and apps, this should be reported to the Medicines and Healthcare products Regulatory Agency (MHRA) using the Yellow Card reporting system: Report a problem with a medicine or medical device. If there is a patient safety event relating to the use of any DHT product (whether a medical device or otherwise) which impacts upon the safety of one or more patients accessing NHS services, it should be recorded to the Learn from patient safety events (LFPSE) service (either online or through the local organisation\'s LFPSE-connected LRMS software where possible), to support both national learning and local response. This should be done in addition to a Yellow Card report if the DHT is a SaaMD or AIaaMD product.',
 ].join('\n\n')
 
 const CLINICAL_SAFETY_INTERSTITIAL_LINKS = [
@@ -442,10 +442,11 @@ const TECHNICAL_SECURITY_INTERSTITIAL_HINT = [
 
 /** Intro copy shown before any interoperability question. */
 const INTEROPERABILITY_INTERSTITIAL_HINT = [
-  'It is important that relevant technologies in the health and social care system are interoperable in terms of hardware, software and data contained within in order for health and social care providers to deliver integrated care. For example, it is important that data from a patient\'s ambulatory blood glucose monitor can be downloaded onto an appropriate clinical system without being restricted to one type. Those technologies that need to interface within clinical record systems must also be interoperable. Application Program Interfaces (APIs) should follow the Government Digital Services Open API Best Practices, be documented and freely available and third parties should have reasonable access in order to integrate technologies.',
-  'Good interoperability reduces expenditure, complexity and delivery times on local system integration projects by standardising technology and interface specifications and simplifying integration. It allows it to be replicated and scaled up and opens the market for innovation by defining the standards to develop upfront.',
-  'This section should be tailored to the specific use case of the product and the needs of the buyer however it should reflect the standards used within the NHS and social care and direction of travel.',
-  'Please provide details relating to the specific technology and not generally to your organisation.',
+  'It is important that relevant technologies in the health and social care system are interoperable in terms of hardware, software and data they contain for health and social care providers to deliver integrated care. For example, data from a patient\'s ambulatory blood glucose monitor should be able to be downloaded onto an appropriate clinical system without being restricted to one type. Technologies that need to interface within clinical record systems must also be interoperable.',
+  'Application Program Interfaces (APIs) should follow the Government Digital Services (GDS) Open API Best Practices, be documented and freely available, and third parties reasonable access to integrate technologies.',
+  'Good interoperability reduces expenditure, complexity and delivery times on local system integration projects by standardising technology and interface specifications and simplifying integration. Interoperability allows integration projects to be replicated and scaled and opens the market for innovation by defining standards upfront.',
+  'This section should be tailored to the specific use case of the product and the needs of the buyer; however, it should reflect the standards used within the NHS and social care and direction of travel.',
+  'Provide details relating to the specific technology and not to your organisation.',
 ].join('\n\n')
 
 const INTEROPERABILITY_INTERSTITIAL_LINKS = [
@@ -1337,7 +1338,7 @@ export const SECTIONS: OnboardingSection[] = [
           id: 'c4-2-3-identification',
           code: 'C4.2.3',
           type: 'textarea',
-          label: 'Give details on the current approach taken to correctly identify patient records',
+          label: 'Provide details on your current approach to correctly identifying patient records',
           showIf: {
             anyOf: [
               { questionId: 'c4-2-1-nhs-number', in: ['no'] },
@@ -1349,18 +1350,15 @@ export const SECTIONS: OnboardingSection[] = [
           id: 'c4-2-4-nhs-login',
           code: 'C4.2.4',
           type: 'radios',
-          label: 'If used directly by patients, do you use NHS login to verify identity and authenticate users?',
-          hint: [
-            'NHS England provides guidance on NHS login for partners and developers.',
-            'NHS England provides a list of all current digital health and social care services that integrate with NHS Login.',
-          ].join('\n\n'),
+          label: 'If your product is used directly by patients, do you use NHS login to verify identity and authenticate users?',
+          hint: 'NHS England provides guidance on NHS Login for partners and developers, and a list of digital health and social services that integrate with NHS Login',
           hintLink: [
             {
-              text: 'NHS login for partners and developers',
+              text: 'NHS Login for partners and developers',
               href: 'https://digital.nhs.uk/services/nhs-login/nhs-login-for-partners-and-developers',
             },
             {
-              text: 'digital health and social care services that integrate with NHS Login',
+              text: 'digital health and social services that integrate with NHS Login',
               href: 'https://digital.nhs.uk/services/nhs-login/nhs-login-for-partners-and-developers/nhs-login-integrated-partners-and-services',
             },
           ],
@@ -1407,7 +1405,7 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'C4.2.6',
           type: 'textarea',
           label: 'Detail your authentication approach and data protection measures',
-          hint: 'Any product that is to be used directly by the patient should have a robust approach to identity verification and authentication sufficient to ensure data protection.',
+          hint: 'For this patient facing product, detail your robust approach to identity verification and authentication sufficient to ensure data protection',
           showIf: { questionId: 'c4-2-5-dapb3051', in: ['no', 'not-applicable'] },
         },
       ]),
@@ -1425,7 +1423,10 @@ export const SECTIONS: OnboardingSection[] = [
           type: 'radios',
           label: 'Can you provide information about how the product fits into existing systems such as care pathways or staff journeys?',
           hint: 'Understanding intended use case in context of user journey is important to help Health and Care providers to design accessible, usable digital care pathways.',
-          options: CAN_PROVIDE,
+          options: [
+            { value: 'yes', label: 'Yes', hint: 'You can provide information on the next page' },
+            { value: 'no', label: "No, I can't provide this right now" },
+          ],
         },
         {
           id: 'd1-1-pathways-upload',
@@ -1436,7 +1437,7 @@ export const SECTIONS: OnboardingSection[] = [
           label: 'Upload care pathways or staff journey documentation',
           details: [
             {
-              summary: 'Examples of documents you could upload',
+              summary: 'Examples of accepted documents',
               text: [
                 '● Instructions for use',
                 '● Care pathway diagrams',
@@ -1445,9 +1446,7 @@ export const SECTIONS: OnboardingSection[] = [
             },
           ],
           documents: [
-            'You can upload multiple at a time, or one after another',
-            'Maximum single file size is XMB',
-            'Upload up to XXMB of files',
+            'You can upload multiple files at a time or one after the other. The maximum single file size you can upload is XMB, and you can upload up to XXMB of files in total',
           ],
           showIf: { questionId: 'd1-1-pathways', in: ['yes'] },
         },
@@ -1455,8 +1454,8 @@ export const SECTIONS: OnboardingSection[] = [
           id: 'd1-2-user-testing',
           code: 'D1.2',
           type: 'radios',
-          label: 'Do you undertake testing with intended users to validate product usability?',
-          hint: 'Usability of software by the intended users is a key factor in ensuring efficiency, efficacy and safety.',
+          label: 'Do you test your product with intended users to validate its useability?',
+          hint: 'Testing that your product is usable ensures efficiency, efficacy and safety',
           options: YES_NO,
         },
         {
@@ -1481,7 +1480,7 @@ export const SECTIONS: OnboardingSection[] = [
           code: 'D1.4',
           type: 'radios',
           label: 'Is your product a web or mobile application?',
-          hint: 'Please refer to the WCAG to determine if your product is a web or mobile application.',
+          hint: 'Refer to the Web Content Accessibility Guidelines (WCAG) 2.2 to determine if your product is a web or mobile application',
           options: YES_NO,
         },
         {
@@ -1504,11 +1503,11 @@ export const SECTIONS: OnboardingSection[] = [
           pageTitle: 'Web Content Accessibility Guidelines (WCAG) 2.2',
           label: 'Does your product comply with WCAG 2.2 at level AA or higher?',
           hint: [
-            'It is UK Government policy that from October 2024 digital public services should achieve AA or higher on the WCAG 2.2 as a means of demonstrating compliance with The Public Sector Bodies, Websites and Mobile Applications, Accessibility Regulations 2018.',
-            'While this may not apply directly to third party products in all situations, meeting these requirements remains an important factor for digital products used in the Health and Adult Social Care System.',
+            'It is UK government policy that from October 2024, digital public services should achieve AA or higher on the WCAG 2.2 as a means of demonstrating compliance with The Public Sector Bodies, Websites and Mobile Applications, and Accessibility Regulations 2018.',
+            'While achieving AA or higher may not apply directly to third party products in all situations, meeting these requirements remains important where digital products are used in the Health and Adult Social Care System.',
           ].join('\n\n'),
           hintLink: {
-            text: 'Government policy',
+            text: 'government policy',
             href: 'https://www.gov.uk/service-manual/helping-people-to-use-your-service/making-your-service-accessible-an-introduction#meeting-government-accessibility-requirements',
           },
           options: [
@@ -1518,7 +1517,7 @@ export const SECTIONS: OnboardingSection[] = [
             {
               value: 'not-applicable',
               label: 'Not applicable',
-              hint: 'Not a web or mobile application',
+              hint: 'your product is not a web or mobile application',
               dividerBefore: true,
             },
           ],
@@ -1528,7 +1527,8 @@ export const SECTIONS: OnboardingSection[] = [
           id: 'd1-4-2-timescale',
           code: 'D1.4.2',
           type: 'textarea',
-          label: 'Set out the timescale by which you plan to be WCAG 2.2 AA compliant',
+          label: 'When do you plan to be compliant with Web Content Accessibility Guidelines (WCAG) 2.2?',
+          hint: 'provide a date or the number of months',
           showIf: { questionId: 'd1-4-1-wcag', in: ['no-plan-in-place'] },
         },
         {
@@ -1538,7 +1538,7 @@ export const SECTIONS: OnboardingSection[] = [
           inputType: 'url',
           pageTitle: 'Provide a link to your published accessibility statement',
           label: 'Provide a link to your published accessibility statement',
-          hint: 'The Government Digital Service provides guidance on accessibility and accessibility statements, including a sample template.',
+          hint: 'If you need help building your accessibility statement, the Government Digital Service (GDS) provides guidance on accessibility and accessibility statements, including a sample template.',
           hintLink: {
             text: 'accessibility and accessibility statements',
             href: 'https://www.gov.uk/guidance/make-your-website-or-app-accessible-and-publish-an-accessibility-statement',
@@ -1553,7 +1553,7 @@ export const SECTIONS: OnboardingSection[] = [
           pageTitle: 'What was your average service availability over the past 12 months?',
           label: 'What was your average service availability over the past 12 months?',
           hint: 'Provision of reliable, high availability services is a requirement for digital services in the public sector.',
-          fieldHint: 'Provide as a percentage to 2 decimal places. For example; 99.95',
+          fieldHint: 'Provide your service availability as a percentage to 2 decimal places, for example, 99.95',
           inputWidth: 'nhsuk-input--width-4',
           suffix: '%',
           showIf: { questionId: 'd1-4-platforms', in: ['android', 'ios', 'web'] },
@@ -1827,8 +1827,8 @@ function intendedUsePhrase(answers: TaskAnswers): string {
   return question.options.find((o) => o.value === value)?.label ?? ''
 }
 
-/** Questions that ask for the product name itself — keep "your product" verbatim. */
-const SKIP_PRODUCT_NAME_SUBSTITUTION = new Set(['a2-product-name'])
+/** Questions that must keep the words "your product" rather than the product name. */
+const SKIP_PRODUCT_NAME_SUBSTITUTION = new Set(['a2-product-name', 'd1-2-user-testing'])
 
 /** Product name from the product-details task, or empty when not yet answered. */
 export function knownProductName(answersFor: (taskId: string) => TaskAnswers): string {
@@ -1885,6 +1885,7 @@ export function questionDisplayHint(
   answersFor: (taskId: string) => TaskAnswers,
 ): string | undefined {
   if (!question.hint) return undefined
+  if (SKIP_PRODUCT_NAME_SUBSTITUTION.has(question.id)) return question.hint
   return substituteProductName(question.hint, knownProductName(answersFor))
 }
 
