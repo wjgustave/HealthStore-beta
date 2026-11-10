@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { BackLink } from '@/components/BackLink'
 import { ErrorSummary } from '@/components/eoi/journey/shared'
-import { TEXTAREA_CHARACTER_LIMIT, characterLimitMessage, countCharacters } from '@/lib/characterCount'
 import { CountryAutocomplete } from '@/components/nhs/CountryAutocomplete'
 import { NhsCharacterCount } from '@/components/nhs/NhsCharacterCount'
 import { NhsFileUpload } from '@/components/nhs/NhsFileUpload'
@@ -19,11 +18,13 @@ import {
   countriesFor,
   countriesProblem,
   countryFieldId,
+  countrySafeguardsError,
   fieldKey,
   formBasePath,
   isAnswered,
   isQuestionVisible,
   isTaskComplete,
+  knownProductName,
   nextPageHref,
   optionFollowUp,
   otherDetailsKey,
@@ -151,7 +152,8 @@ export default function TaskQuestionPage({
   }
 
   function validate(): boolean {
-    const message = questionError(question, merged)
+    const productName = knownProductName((taskId) => (taskId === task.id ? merged : getAnswers(taskId)))
+    const message = questionError(question, merged, productName)
     setError(message)
     return !message
   }
@@ -1221,13 +1223,7 @@ function CountryDetailsField({ question, draft, answers = {}, patch, hintId, err
       {countries.map((country, index) => {
         const id = countryFieldId(question.id, index)
         const value = details[country] ?? ''
-        const rowError = !error
-          ? undefined
-          : countCharacters(value) > TEXTAREA_CHARACTER_LIMIT
-            ? characterLimitMessage(`Safeguards for ${country}`)
-            : !isAnswered(value)
-              ? `Set out the safeguards for ${country}`
-              : undefined
+        const rowError = error ? countrySafeguardsError(country, value) : undefined
         return (
           <Fragment key={country}>
             {index > 0 && <hr className="nhsuk-section-break nhsuk-section-break--m nhsuk-section-break--visible" />}

@@ -19,6 +19,7 @@
 
 import { TEXTAREA_CHARACTER_LIMIT, characterLimitMessage, countCharacters } from '@/lib/characterCount'
 import { canonicalCountryName } from '@/lib/countries'
+import { QUESTION_ERRORS, type QuestionErrorMessages } from '@/lib/supplierOnboardingErrors'
 import { PORTAL_PATHS } from '@/lib/supplierPortal'
 
 export const SERVICE_NAME = 'HealthStore Onboarding'
@@ -1616,13 +1617,14 @@ export function questionKeys(q: OnboardingQuestion): string[] {
   }
 }
 
-/** Loose YYYY-MM-DD check: all three parts present and in plausible ranges. */
+/** YYYY-MM-DD check: all three parts present, a year from 1900 to 2100, and a real calendar date. */
 export function isValidIsoDate(value: string | undefined): boolean {
   if (!value) return false
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value)
   if (!m) return false
   const [, y, mo, d] = m.map(Number)
-  return y >= 1900 && y <= 2100 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31
+  if (y < 1900 || y > 2100 || mo < 1 || mo > 12 || d < 1) return false
+  return d <= new Date(y, mo, 0).getDate()
 }
 
 /** True when the date is a valid calendar date strictly after today (local time). */
@@ -1689,16 +1691,24 @@ export function countriesProblem(
   answers: TaskAnswers,
 ): { message: string; row: number } | undefined {
   const rows = parseCountries(answers[question.id])
-  if (rows.length === 0) return { message: 'Enter a country', row: 0 }
+  const required = QUESTION_ERRORS[question.id]?.required ?? 'Enter a country'
+  if (rows.length === 0) return { message: required, row: 0 }
   const seen = new Set<string>()
   for (let row = 0; row < rows.length; row += 1) {
     const value = rows[row].trim()
-    if (!value) return { message: rows.length > 1 ? 'Enter a country or delete it' : 'Enter a country', row }
+    if (!value) return { message: rows.length > 1 ? 'Enter a country or delete this row' : required, row }
     const name = canonicalCountryName(value)
-    if (!name) return { message: `Select ${value} from the list of countries`, row }
-    if (seen.has(name)) return { message: `You have already added ${name}`, row }
+    if (!name) return { message: 'Select a country from the list', row }
+    if (seen.has(name)) return { message: `You have already added ${name}. Enter a different country or delete this row`, row }
     seen.add(name)
   }
+  return undefined
+}
+
+/** Error for one country's safeguards text area on a `country-details` page. */
+export function countrySafeguardsError(country: string, value: string): string | undefined {
+  if (countCharacters(value) > TEXTAREA_CHARACTER_LIMIT) return characterLimitMessage(`Safeguards for ${country}`)
+  if (!isAnswered(value)) return `Set out the safeguards you have in place for ${country}`
   return undefined
 }
 
@@ -1715,12 +1725,8 @@ function countryDetailsProblem(
   const details = parseCountryDetails(answers[question.id])
   const countries = countriesFor(question, answers)
   for (let row = 0; row < countries.length; row += 1) {
-    const country = countries[row]
-    const value = details[country] ?? ''
-    if (countCharacters(value) > TEXTAREA_CHARACTER_LIMIT) {
-      return { message: characterLimitMessage(`Safeguards for ${country}`), row }
-    }
-    if (!isAnswered(value)) return { message: `Set out the safeguards for ${country}`, row }
+    const message = countrySafeguardsError(countries[row], details[countries[row]] ?? '')
+    if (message) return { message, row }
   }
   return undefined
 }
@@ -1730,24 +1736,72 @@ export function countryFieldId(questionId: string, row: number): string {
   return `${questionId}-${row}`
 }
 
-/** Error message for the answer(s) on one question page, or undefined when it can be saved. */
-export function questionError(question: OnboardingQuestion, merged: TaskAnswers): string | undefined {
-  if (question.type === 'date' && question.mustBeFuture) {
-    const value = merged[question.id]
-    if (!isValidIsoDate(value)) return 'Enter a valid date'
-    if (!isFutureIsoDate(value)) return 'The expiry date must be in the future'
-    return undefined
+/** The question's error messages, with "your product" replaced by the product name when it is known. */
+function errorMessagesFor(question: OnboardingQuestion, productName?: string): QuestionErrorMessages {
+  const messages = QUESTION_ERRORS[question.id] ?? {}
+  if (!productName || SKIP_PRODUCT_NAME_SUBSTITUTION.has(question.id)) return messages
+  const named = (text?: string) => (text ? substituteProductName(text, productName) : text)
+  return {
+    required: named(messages.required),
+    followUp: named(messages.followUp),
+    subject: named(messages.subject),
+    fields: messages.fields,
   }
+}
+
+type DatePart = 'day' | 'month' | 'year'
+
+/** Date parts left empty, in the order the inputs appear. */
+function missingDateParts(value: string | undefined): DatePart[] {
+  const [year = '', month = '', day = ''] = (value ?? '').split('-')
+  const parts: Array<[DatePart, string]> = [
+    ['day', day],
+    ['month', month],
+    ['year', year],
+  ]
+  return parts.filter(([, v]) => !v).map(([part]) => part)
+}
+
+/** GOV.UK Date input messages: empty, incomplete, year not 4 numbers, not a real date, not in the future. */
+function dateError(
+  question: Extract<OnboardingQuestion, { type: 'date' }>,
+  value: string | undefined,
+  messages: QuestionErrorMessages,
+): string | undefined {
+  const subject = messages.subject ?? 'Date'
+  const missing = missingDateParts(value)
+  if (missing.length === 3) return question.optional ? undefined : (messages.required ?? 'Enter a date')
+  if (missing.length > 0) return `${subject} must include a ${missing.join(' and ')}`
+  if ((value ?? '').split('-')[0].length !== 4) return 'Year must include 4 numbers'
+  if (!isValidIsoDate(value)) return `${subject} must be a real date`
+  if (question.mustBeFuture && !isFutureIsoDate(value)) return `${subject} must be in the future`
+  return undefined
+}
+
+/** "Enter address line 1" from the label "Address line 1"; keeps capitals in labels like "NHS number". */
+function enterFieldMessage(label: string): string {
+  const lowered = /^[A-Z][a-z]/.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label
+  return `Enter ${lowered}`
+}
+
+/**
+ * Error message for the answer(s) on one question page, or undefined when it can be saved.
+ * Pass `productName` so messages name the product, as the question heading does.
+ */
+export function questionError(question: OnboardingQuestion, merged: TaskAnswers, productName?: string): string | undefined {
+  const messages = errorMessagesFor(question, productName)
+  if (question.type === 'date') return dateError(question, merged[question.id], messages)
   if (
     (question.type === 'radios' || question.type === 'checkboxes') &&
     isAnswered(merged[question.id]) &&
     optionFollowUp(question, merged[question.id]) &&
     !isAnswered(merged[otherDetailsKey(question.id)])
   ) {
+    if (messages.followUp) return messages.followUp
     return optionFollowUp(question, merged[question.id])?.inputType === 'url' ? 'Enter a URL' : 'Enter details'
   }
   if (question.type === 'textarea' && countCharacters(merged[question.id] ?? '') > TEXTAREA_CHARACTER_LIMIT) {
-    return characterLimitMessage(question.label)
+    return characterLimitMessage(messages.subject ?? question.label)
   }
   if (question.type === 'countries') return countriesError(question, merged)
   if (question.type === 'country-details') return countryDetailsProblem(question, merged)?.message
@@ -1757,7 +1811,7 @@ export function questionError(question: OnboardingQuestion, merged: TaskAnswers)
     const hasRef = isAnswered(merged[`${question.id}${UPLOAD_REFERENCE_SUFFIX}`])
     if (!hasFile) {
       if (question.optional) return undefined
-      return needsRef && !hasRef ? 'Select a file and enter a reference name' : 'Select a file'
+      return needsRef && !hasRef ? 'Upload a file and enter a reference name' : (messages.required ?? 'Upload a file')
     }
     if (needsRef && !hasRef) return 'Enter a reference name'
     return undefined
@@ -1765,21 +1819,30 @@ export function questionError(question: OnboardingQuestion, merged: TaskAnswers)
   if (question.optional || question.type === 'blocked' || question.type === 'info' || isQuestionAnswered(question, merged)) {
     return undefined
   }
-  if (question.type === 'upload') return 'Select a file'
-  if (question.type === 'date') return 'Enter a valid date'
   if (question.type === 'multi-upload') {
     return parseUploadedDocuments(merged[question.id]).length === 0
       ? 'Add at least one document and mark the question as complete'
       : 'Mark the question as complete'
   }
-  if (question.type === 'fields') return 'Complete the required fields'
+  if (question.type === 'fields') {
+    const field = question.fields.find((f) => !f.optional && !isAnswered(merged[fieldKey(question.id, f)]))
+    if (field) return messages.fields?.[field.key] ?? enterFieldMessage(field.label)
+  }
+  if (messages.required) return messages.required
+  if (question.type === 'upload') return 'Upload a file'
   if (question.type === 'radios' || question.type === 'checkboxes') return 'Select an answer'
   return 'Enter an answer'
 }
 
 /** Field id the error summary links to for a question page. */
 export function questionErrorFieldId(question: OnboardingQuestion, merged: TaskAnswers): string {
-  if (question.type === 'date') return `${question.id}-day`
+  if (question.type === 'date') {
+    const value = merged[question.id]
+    const missing = missingDateParts(value)
+    if (missing.length > 0 && missing.length < 3) return `${question.id}-${missing[0]}`
+    if (missing.length === 0 && (value ?? '').split('-')[0].length !== 4) return `${question.id}-year`
+    return `${question.id}-day`
+  }
   if (question.type === 'countries') return countryFieldId(question.id, countriesProblem(question, merged)?.row ?? 0)
   if (question.type === 'country-details') {
     return countryFieldId(question.id, countryDetailsProblem(question, merged)?.row ?? 0)

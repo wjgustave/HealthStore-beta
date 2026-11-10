@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import {
   isQuestionAnswered,
   isQuestionVisible,
+  knownProductName,
   questionError,
   questionErrorFieldId,
   questionForDisplay,
@@ -107,7 +108,7 @@ function ManagedQuestionPageInner({ productId, task, section, step, defaults }: 
   }
 
   function saveAndContinue() {
-    const message = questionError(question, merged)
+    const message = questionError(question, merged, knownProductName(() => merged))
     setError(message)
     if (message) return
     continueFrom(persist(draft))
