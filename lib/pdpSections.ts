@@ -55,7 +55,7 @@ export function pdpPageTitle(id: PdpPageId, ctx: { appName?: string } = {}): str
     case 'procurement':
       return 'Procurement'
     case 'get-in-touch':
-      return 'Get in touch'
+      return 'Get commissioning support'
     case 'resources':
       return 'Resources'
   }
@@ -134,7 +134,7 @@ export function pdpSectionTitle(id: PdpSectionId, ctx: PdpSectionTitleContext = 
     case 'how-to-buy':
       return 'How to commission and procure'
     case 'get-in-touch':
-      return 'Get in touch'
+      return 'Get commissioning support'
     case 'resources':
       return 'Resources'
   }

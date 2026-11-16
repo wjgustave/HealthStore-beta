@@ -219,7 +219,7 @@ export default function TaskQuestionPage({
             )}
 
             {blocked && (
-              <p className="nhsuk-body">
+              <p className="nhsuk-body-m">
                 <Link className="nhsuk-link" href={backHref}>
                   You can change your answer
                 </Link>
@@ -288,10 +288,32 @@ type FieldProps = Omit<QuestionFieldProps, 'caption'>
 
 const CaptionContext = createContext<string | undefined>(undefined)
 
-/** The page caption, placed directly after whichever element holds the page `<h1>`. */
+/**
+ * Section caption, first inside the page heading so it sits above the question.
+ * NHS caption: https://service-manual.nhs.uk/design-system/styles/typography
+ */
 function PageCaption() {
   const caption = useContext(CaptionContext)
-  return caption ? <span className="nhsuk-caption-l hs-caption-below">{caption}</span> : null
+  return caption ? <span className="nhsuk-caption-l">{caption}</span> : null
+}
+
+/**
+ * Question guidance that stays a grey NHS hint. Everything else in sections A to D
+ * is body text. Radio and checkbox option hints, field examples and the character
+ * count are rendered separately and stay hints.
+ */
+const HINT_STAYS_HINT = new Set([
+  'For example, 3.2.0.',
+  'A clear, high-level summary.',
+  'A high-level summary, including any trial details.',
+  'For example, 15 3 2028.',
+  'Select all that apply.',
+  'provide a date or the number of months',
+])
+
+function hintIsBody(question: OnboardingQuestion) {
+  const text = question.hint?.trim()
+  return Boolean(text) && !HINT_STAYS_HINT.has(text)
 }
 
 /**
@@ -323,7 +345,7 @@ function linkedText(text: string, link?: { text: string; href: string } | { text
   return <>{nodes}</>
 }
 
-function richText(text: string, link?: OnboardingQuestion['hintLink']) {
+function richText(text: string, link?: OnboardingQuestion['hintLink'], body = false) {
   const parts = text.split('\n\n').map((part) => part.trim()).filter(Boolean)
   const remaining = !link ? [] : Array.isArray(link) ? [...link] : [link]
   const takeLinks = (part: string) => {
@@ -355,16 +377,23 @@ function richText(text: string, link?: OnboardingQuestion['hintLink']) {
       )
     } else {
       const part = parts[index]
+      const content = linkedText(part, takeLinks(part))
       blocks.push(
-        <span key={`text-${index}`}>
-          {blocks.length > 0 && (
-            <>
-              <br />
-              <br />
-            </>
-          )}
-          {linkedText(part, takeLinks(part))}
-        </span>,
+        body ? (
+          <p key={`text-${index}`} className="nhsuk-body-m">
+            {content}
+          </p>
+        ) : (
+          <span key={`text-${index}`}>
+            {blocks.length > 0 && (
+              <>
+                <br />
+                <br />
+              </>
+            )}
+            {content}
+          </span>
+        ),
       )
       index += 1
     }
@@ -377,7 +406,7 @@ function hintContent(question: OnboardingQuestion, includeDocuments = true) {
   if (!question.hint && !documents?.length) return null
   return (
     <>
-      {question.hint ? richText(question.hint, question.hintLink) : null}
+      {question.hint ? richText(question.hint, question.hintLink, hintIsBody(question)) : null}
       {documents && documents.length > 0 && (
         <ul className="nhsuk-list nhsuk-list--bullet nhsuk-u-margin-top-2 nhsuk-u-margin-bottom-0">
           {documents.map((d) => (
@@ -395,7 +424,7 @@ function Hint({ question, id }: { question: OnboardingQuestion; id: string }) {
   return (
     <>
       {content && (
-        <div className="nhsuk-hint" id={id}>
+        <div className={hintIsBody(question) ? undefined : 'nhsuk-hint'} id={id}>
           {content}
         </div>
       )}
@@ -505,8 +534,12 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
         [pageTitle ? fieldHintId : hasHint ? hintId : undefined, groupErrorId].filter(Boolean).join(' ') || undefined
       return (
         <>
-          {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
-          {pageTitle && <PageCaption />}
+          {pageTitle && (
+            <h1 className="nhsuk-heading-l">
+              <PageCaption />
+              {pageTitle}
+            </h1>
+          )}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
         <div className={`nhsuk-form-group${groupError ? ' nhsuk-form-group--error' : ''}`}>
@@ -522,11 +555,11 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
               <>
                 <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
                   <h1 className="nhsuk-fieldset__heading">
+                    <PageCaption />
                     {question.label}
                     {optionalSuffix}
                   </h1>
                 </legend>
-                <PageCaption />
               </>
             )}
             {pageTitle && question.fieldHint && (
@@ -629,8 +662,12 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
       const pageTitle = question.pageTitle
       return (
         <>
-          {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
-          {pageTitle && <PageCaption />}
+          {pageTitle && (
+            <h1 className="nhsuk-heading-l">
+              <PageCaption />
+              {pageTitle}
+            </h1>
+          )}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
           <div className={`nhsuk-form-group nhsuk-character-count${error ? ' nhsuk-form-group--error' : ''}`} data-maxlength="500" data-count-type="characters">
@@ -643,11 +680,11 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
               <>
                 <h1 className="nhsuk-label-wrapper">
                   <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
+                    <PageCaption />
                     {question.label}
                     {optionalSuffix}
                   </label>
                 </h1>
-                <PageCaption />
               </>
             )}
             {!pageTitle && <Hint question={question} id={hintId} />}
@@ -701,8 +738,12 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
       )
       return (
         <>
-          {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
-          {pageTitle && <PageCaption />}
+          {pageTitle && (
+            <h1 className="nhsuk-heading-l">
+              <PageCaption />
+              {pageTitle}
+            </h1>
+          )}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
           <div className={`nhsuk-form-group${error ? ' nhsuk-form-group--error' : ''}`}>
@@ -715,11 +756,11 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
               <>
                 <h1 className="nhsuk-label-wrapper">
                   <label className="nhsuk-label nhsuk-label--l" htmlFor={question.id}>
+                    <PageCaption />
                     {question.label}
                     {optionalSuffix}
                   </label>
                 </h1>
-                <PageCaption />
               </>
             )}
             {!pageTitle && <Hint question={question} id={hintId} />}
@@ -749,8 +790,12 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
       const pageTitle = question.pageTitle
       return (
         <>
-          {pageTitle && <h1 className="nhsuk-heading-l">{pageTitle}</h1>}
-          {pageTitle && <PageCaption />}
+          {pageTitle && (
+            <h1 className="nhsuk-heading-l">
+              <PageCaption />
+              {pageTitle}
+            </h1>
+          )}
           {pageTitle && <Hint question={question} id={hintId} />}
           {pageTitle && <QuestionDisclosures question={question} />}
           <div className={`nhsuk-form-group${error ? ' nhsuk-form-group--error' : ''}`}>
@@ -766,11 +811,11 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
                 <>
                   <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
                     <h1 className="nhsuk-fieldset__heading">
+                      <PageCaption />
                       {question.label}
                       {optionalSuffix}
                     </h1>
                   </legend>
-                  <PageCaption />
                 </>
               )}
               {!pageTitle && <Hint question={question} id={hintId} />}
@@ -854,8 +899,10 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
     case 'blocked':
       return (
         <>
-          <h1 className="nhsuk-heading-l">{question.label}</h1>
-          <PageCaption />
+          <h1 className="nhsuk-heading-l">
+            <PageCaption />
+            {question.label}
+          </h1>
           <Hint question={question} id={hintId} />
         </>
       )
@@ -863,12 +910,12 @@ function QuestionControls({ question, draft, answers, patch, commit, error }: Fi
     case 'info':
       return (
         <>
-          <h1 className="nhsuk-heading-l">{question.label}</h1>
-          <PageCaption />
+          <h1 className="nhsuk-heading-l">
+            <PageCaption />
+            {question.label}
+          </h1>
           {question.hint ? (
-            <div className="nhsuk-body" id={hintId}>
-              {richText(question.hint, question.hintLink)}
-            </div>
+            <div id={hintId}>{richText(question.hint, question.hintLink, true)}</div>
           ) : null}
         </>
       )
@@ -897,11 +944,11 @@ function DateField({ question, draft, patch, describedBy, hintId, optionalSuffix
       <fieldset className="nhsuk-fieldset" aria-describedby={describedBy} role="group">
         <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
           <h1 className="nhsuk-fieldset__heading">
+            <PageCaption />
             {question.label}
             {optionalSuffix}
           </h1>
         </legend>
-        <PageCaption />
         <Hint question={question} id={hintId} />
         {error && (
           <span className="nhsuk-error-message" id={errorId}>
@@ -988,11 +1035,12 @@ function MultipleFileUpload({ question, draft, commit, optionalSuffix, error }: 
           </>
         }
         hint={hintContent(question, !hintSeparately)}
+        hintClassName={hintIsBody(question) ? '' : undefined}
         afterHint={
           <>
             <QuestionDisclosures question={question} />
             {hintSeparately && (
-              <div className="nhsuk-hint">
+              <div className={hintIsBody(question) ? undefined : 'nhsuk-hint'}>
                 <ul className="nhsuk-list nhsuk-list--bullet nhsuk-u-margin-bottom-0">
                   {guide.map((item) => (
                     <li key={item}>{item}</li>
@@ -1034,7 +1082,7 @@ function MultipleFileUpload({ question, draft, commit, optionalSuffix, error }: 
           ))}
         </ul>
       )}
-      {footnote && <p className="nhsuk-body">{footnote}</p>}
+      {footnote && <p className="nhsuk-body-m">{footnote}</p>}
     </>
   )
 }
@@ -1067,6 +1115,7 @@ function UploadField({ question, draft, patch, optionalSuffix, error }: SubField
           </>
         }
         hint={hintContent(question)}
+        hintClassName={hintIsBody(question) ? '' : undefined}
         afterHint={<QuestionDisclosures question={question} />}
         error={fileError}
         onFileChange={(file) => {
@@ -1148,11 +1197,11 @@ function CountriesField({ question, draft, patch, hintId, optionalSuffix, error 
       <fieldset className="nhsuk-fieldset" aria-describedby={hintContent(question) ? hintId : undefined}>
         <legend className="nhsuk-fieldset__legend nhsuk-fieldset__legend--l">
           <h1 className="nhsuk-fieldset__heading">
+            <PageCaption />
             {question.label}
             {optionalSuffix}
           </h1>
         </legend>
-        <PageCaption />
         <Hint question={question} id={hintId} />
         <QuestionDisclosures question={question} />
         {rows.map((row, index) => {
@@ -1213,10 +1262,12 @@ function CountryDetailsField({ question, draft, answers = {}, patch, hintId, err
   const details = parseCountryDetails(draft[question.id])
   return (
     <>
-      <h1 className="nhsuk-heading-l">{question.label}</h1>
-      <PageCaption />
+      <h1 className="nhsuk-heading-l">
+        <PageCaption />
+        {question.label}
+      </h1>
       {question.hint && (
-        <p className="nhsuk-body" id={hintId}>
+        <p className="nhsuk-body-m" id={hintId}>
           {question.hint}
         </p>
       )}
@@ -1319,10 +1370,10 @@ function MultiUploadField({ question, draft, patch, commit, hintId, optionalSuff
     <>
       <ErrorSummary id={`${question.id}-upload-errors`} errors={uploadErrors} />
       <h1 className="nhsuk-heading-l">
+        <PageCaption />
         {question.label}
         {optionalSuffix}
       </h1>
-      <PageCaption />
       <Hint question={question} id={hintId} />
 
       {/* NHS Details — https://service-manual.nhs.uk/design-system/components/details */}

@@ -54,10 +54,6 @@ export default function AppsDiscoveryClient({
     () => (apps ?? []).filter((a) => !isMarketPreview(a)),
     [apps],
   )
-  const notOnStore = useMemo(
-    () => (apps ?? []).filter((a) => isMarketPreview(a)),
-    [apps],
-  )
   const mergedAreas = useMemo(
     () => mergeCopdAndPulmonaryRehab(conditionAreas, apps ? commissionableApps : undefined),
     [conditionAreas, apps, commissionableApps],
@@ -110,28 +106,6 @@ export default function AppsDiscoveryClient({
             </span>
           </p>
         </section>
-
-        {notOnStore.length > 0 ? (
-          <section aria-labelledby="not-on-store-heading" className="nhsuk-u-margin-bottom-7">
-            <h2 id="not-on-store-heading" className="nhsuk-heading-l">
-              Not on the Commissioning Store
-            </h2>
-            <ul className="nhsuk-grid-row nhsuk-card-group">
-              {notOnStore.map((app) => (
-                <li key={app.slug} className="nhsuk-grid-column-one-third nhsuk-card-group__item">
-                  <ClickableChevronCard
-                    variant="primary"
-                    href={`/apps/${app.slug}`}
-                    title={app.app_name}
-                    description={app.supplier_name ?? ''}
-                    headingLevel={3}
-                    className="w-full"
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
 
         {roadmapConditions.length > 0 ? (
           <section aria-labelledby="coming-soon-heading">

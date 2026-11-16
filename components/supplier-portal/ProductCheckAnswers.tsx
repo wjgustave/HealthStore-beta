@@ -86,9 +86,9 @@ export default function ProductCheckAnswers({
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={productHref} />
           <h1 ref={headingRef} tabIndex={-1} className="nhsuk-heading-xl outline-none">
+            <span className="nhsuk-caption-l">{product.name}</span>
             Check your answers before submitting
           </h1>
-          <span className="nhsuk-caption-l hs-caption-below">{product.name}</span>
           <p className="nhsuk-body-m">Only the answers you have changed are shown below.</p>
 
           {SECTIONS.map((section) => {

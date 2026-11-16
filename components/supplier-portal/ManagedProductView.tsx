@@ -44,8 +44,10 @@ export default function ManagedProductView({
 
   return (
     <>
-      <h1 className="nhsuk-heading-xl">{product.name}</h1>
-      <span className="nhsuk-caption-l hs-caption-below">Product information</span>
+      <h1 className="nhsuk-heading-xl">
+        <span className="nhsuk-caption-l">Product information</span>
+        {product.name}
+      </h1>
 
       <StatusSummary
         status={status}

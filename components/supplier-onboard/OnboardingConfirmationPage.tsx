@@ -48,11 +48,11 @@ export default function OnboardingConfirmationPage({
               {productName} has been onboarded
             </h1>
           </div>
-          <p style={{ fontSize: 'var(--text-body)' }}>
+          <p className="nhsuk-body-m">
             Your product has been onboarded to the NHS HealthStore. You can keep its information and
             documents up to date from <Link className="nhsuk-link" href={PORTAL_PATHS.manage}>Manage products</Link>.
           </p>
-          <p style={{ fontSize: 'var(--text-body)' }}>
+          <p className="nhsuk-body-m">
             <Link className="nhsuk-link" href={PORTAL_PATHS.dashboard}>
               Dashboard
             </Link>

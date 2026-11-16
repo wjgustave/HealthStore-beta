@@ -218,21 +218,24 @@ export default function CatalogueClient({ apps }: { apps: App[] }) {
     })
   }
 
+  const catalogueApps = useMemo(
+    () => apps.filter((app) => !isMarketPreview(app)),
+    [apps],
+  )
+
   const filteredSorted = useMemo(() => {
-    return apps
+    return catalogueApps
       .filter((app: App) => {
         if (supervision.length > 0 && !supervision.includes(app.supervision_model)) return false
         if (condition !== 'all' && !appMatchesCondition(app, condition)) return false
         return true
       })
       .sort((a, b) => a.app_name.localeCompare(b.app_name))
-  }, [apps, supervision, condition])
+  }, [catalogueApps, supervision, condition])
 
-  const onStore = filteredSorted.filter((app) => !isMarketPreview(app))
-  const notOnStore = filteredSorted.filter((app) => isMarketPreview(app))
   const resultCount = filteredSorted.length
   const resultText = `${resultCount.toLocaleString()} ${resultCount === 1 ? 'result' : 'results'}`
-  const resultSummary = `Showing ${resultCount} of ${apps.length} apps`
+  const resultSummary = `Showing ${resultCount} of ${catalogueApps.length} apps`
 
   return (
     <div className="nhsuk-width-container">
@@ -364,27 +367,11 @@ export default function CatalogueClient({ apps }: { apps: App[] }) {
                 <p className="nhsuk-u-margin-bottom-0">Try adjusting your filter criteria</p>
               </div>
             ) : (
-              <>
-                {onStore.length > 0 && (
-                  <ul className="nhsuk-list">
-                    {onStore.map((app) => (
-                      <ProductCard key={app.id} app={app} />
-                    ))}
-                  </ul>
-                )}
-                {notOnStore.length > 0 && (
-                  <section aria-labelledby="not-on-store-heading" className="nhsuk-u-margin-top-7">
-                    <h2 id="not-on-store-heading" className="nhsuk-heading-l">
-                      Not on the Commissioning Store
-                    </h2>
-                    <ul className="nhsuk-list">
-                      {notOnStore.map((app) => (
-                        <ProductCard key={app.id} app={app} />
-                      ))}
-                    </ul>
-                  </section>
-                )}
-              </>
+              <ul className="nhsuk-list">
+                {filteredSorted.map((app) => (
+                  <ProductCard key={app.id} app={app} />
+                ))}
+              </ul>
             )}
           </div>
         </div>

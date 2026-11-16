@@ -36,8 +36,10 @@ export default async function SupplierOnboardFormPage({ params }: { params: Para
       <div className="nhsuk-grid-row">
         <div className="nhsuk-grid-column-two-thirds">
           <div className="hs-section">
-            <h1 className="nhsuk-heading-xl">{SERVICE_NAME}</h1>
-            <span className="nhsuk-caption-l hs-caption-below">{form.productName}</span>
+            <h1 className="nhsuk-heading-xl">
+              <span className="nhsuk-caption-l">{form.productName}</span>
+              {SERVICE_NAME}
+            </h1>
             <p className="nhsuk-body-l">
               Complete the numbered tasks to onboard your product onto the NHS HealthStore. You can
               complete the tasks in any order and return to this page at any time.

@@ -24,6 +24,7 @@ export function NhsFileUpload({
   id,
   label,
   hint,
+  hintClassName,
   afterHeading,
   afterHint,
   error,
@@ -37,8 +38,10 @@ export function NhsFileUpload({
 }: {
   id: string
   label: ReactNode
-  /** Hint content; rendered in `.nhsuk-hint` with id `${id}-hint`. */
+  /** Hint content; rendered in `.nhsuk-hint` with id `${id}-hint`, unless `hintClassName` is set. */
   hint?: ReactNode
+  /** Class for the hint wrapper. Body guidance uses `nhsuk-body-m`. */
+  hintClassName?: string
   /** Rendered directly after the label (or its `<h1>`), before the hint. */
   afterHeading?: ReactNode
   /** Rendered after the hint and before the file control, outside the hint style. */
@@ -119,10 +122,18 @@ export function NhsFileUpload({
     <div
       className={`nhsuk-form-group nhsuk-file-upload${error ? ' nhsuk-form-group--error' : ''}${className ? ` ${className}` : ''}`}
     >
-      {labelAsPageHeading ? <h1 className="nhsuk-label-wrapper">{labelEl}</h1> : labelEl}
-      {afterHeading}
+      {labelAsPageHeading ? (
+        <h1 className="nhsuk-label-wrapper">
+          <label className={`nhsuk-label${size ? ` nhsuk-label--${size}` : ''}`} htmlFor={id}>
+            {afterHeading}
+            {label}
+          </label>
+        </h1>
+      ) : (
+        labelEl
+      )}
       {hint ? (
-        <div className="nhsuk-hint" id={hintId}>
+        <div className={hintClassName ?? 'nhsuk-hint'} id={hintId}>
           {hint}
         </div>
       ) : null}

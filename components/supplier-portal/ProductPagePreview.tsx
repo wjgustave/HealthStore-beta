@@ -84,8 +84,10 @@ function Preview({ productId, base }: { productId: string; base: PortalProductRe
       </div>
 
       <div className="nhsuk-u-margin-bottom-6">
-        <h1 className="nhsuk-heading-xl">{app.app_name}</h1>
-        <span className="nhsuk-caption-xl hs-caption-below">{app.supplier_name}</span>
+        <h1 className="nhsuk-heading-xl">
+          <span className="nhsuk-caption-xl">{app.supplier_name}</span>
+          {app.app_name}
+        </h1>
         <div className="flex flex-wrap gap-2 nhsuk-u-margin-bottom-4">
           {(app.condition_tags ?? []).map((t: string) => (
             <ConditionTag key={t} tag={t} />

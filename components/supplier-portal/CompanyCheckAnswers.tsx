@@ -101,9 +101,9 @@ function SectionCheckAnswers({ section }: { section: CompanySection }) {
         <div className="nhsuk-grid-column-two-thirds">
           <BackLink href={COMPANY_PATHS.page} />
           <h1 ref={headingRef} tabIndex={-1} className="nhsuk-heading-xl outline-none">
+            <span className="nhsuk-caption-l">{section.title}</span>
             {firstTime ? 'Check your answers before submitting' : 'Check your changes before submitting'}
           </h1>
-          <span className="nhsuk-caption-l hs-caption-below">{section.title}</span>
 
           <dl className="nhsuk-summary-list nhsuk-u-margin-bottom-7">
             {rows.map(({ question, step }) => (

@@ -110,8 +110,10 @@ export default function PublishedPageEditor({
     <>
       {errors.length > 0 ? <ErrorSummary errors={errors} /> : null}
 
-      <h1 className="nhsuk-heading-xl">{title}</h1>
-      <span className="nhsuk-caption-l hs-caption-below">{caption}</span>
+      <h1 className="nhsuk-heading-xl">
+        <span className="nhsuk-caption-l">{caption}</span>
+        {title}
+      </h1>
 
       <StatusSummary
         status={status}

@@ -384,9 +384,9 @@ export default function ProductPageSectionEditor({
       <BackLink href={hubHref} />
       {errors.length > 0 && <ErrorSummary errors={errors} />}
       <h1 ref={headingRef} tabIndex={-1} className="nhsuk-heading-xl outline-none">
+        <span className="nhsuk-caption-l">{name} product page</span>
         {section.title(name)}
       </h1>
-      <span className="nhsuk-caption-l hs-caption-below">{name} product page</span>
       {intro && <p className="nhsuk-body-m">{withName(intro, name)}</p>}
       <p className="nhsuk-body-m">
         <button

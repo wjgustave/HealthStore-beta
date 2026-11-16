@@ -68,9 +68,9 @@ export default function ProductPageCheckAnswers({ productId, base }: { productId
     <>
       <BackLink href={hubHref} />
       <h1 ref={headingRef} tabIndex={-1} className="nhsuk-heading-xl outline-none">
+        <span className="nhsuk-caption-l">{name} product page</span>
         Check your answers before publishing
       </h1>
-      <span className="nhsuk-caption-l hs-caption-below">{name} product page</span>
       <p className="nhsuk-body-m">
         {isFirstSubmission
           ? 'Check everything you have written for the page.'

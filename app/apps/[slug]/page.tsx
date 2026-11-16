@@ -101,7 +101,7 @@ export default async function AppPage({
                   href={`/apps/${app.slug}/express-interest`}
                   className="nhsuk-button mb-0 inline-flex items-center justify-center gap-2 align-top max-sm:mb-2 max-sm:w-full no-underline"
                 >
-                  Get in touch
+                  Get commissioning support
                 </Link>
               )}
               <CompareToggleButton

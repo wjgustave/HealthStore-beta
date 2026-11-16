@@ -61,8 +61,10 @@ export default function ProductPageOverview({ productId, base }: { productId: st
 
   return (
     <>
-      <h1 className="nhsuk-heading-xl">{name}</h1>
-      <span className="nhsuk-caption-l hs-caption-below">Product page</span>
+      <h1 className="nhsuk-heading-xl">
+        <span className="nhsuk-caption-l">Product page</span>
+        {name}
+      </h1>
 
       <StatusSummary
         status={status}
